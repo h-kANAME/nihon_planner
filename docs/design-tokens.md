@@ -1,38 +1,55 @@
-# Design tokens — kyz.com.ar → Nihon Planner
+# Design tokens — Nihon Planner (kyz + Material)
 
-Extraídos manualmente del CSS del portfolio (https://kyz.com.ar) el 15/07/2026.
+Tokens semánticos con **tema dark** (portfolio [kyz.com.ar](https://kyz.com.ar)) y **tema light** (Material-inspired, contraste WCAG). Código: [`src/theme.js`](../src/theme.js).
 
-## Paleta
+## Modos
 
-| Token | Valor | Origen |
-|-------|-------|--------|
-| `bg` | `#2d2e32` | `bg-dark-200` header |
-| `bgDeep` | `#202022` | fondos profundos |
-| `card` / superficie | `#25262a` | `dark-100` |
-| `ink` (texto primario) | `#f3f4f6` | gray-100 |
-| `soft` (texto secundario) | `#9ca3af` | gray-400 |
-| `line` | `#374151` | gray-700 |
-| `accent` | `#15eb80` | `green-100` hover/CTA |
-| `accentDim` | `#047857` | `green-600` chips |
-| `matcha` | `#64f4ac` | labels |
-| `danger` | `#be6464` | errores portfolio |
-| `hanko` | `#BC002D` | hinomaru (branding Nihon, no portfolio) |
+| Modo | Default | Persistencia |
+|------|---------|--------------|
+| `dark` | Sí (o `prefers-color-scheme`) | `localStorage` clave `nihon-theme` |
+| `light` | Si el SO prefiere light | Toggle 明/暗 en header y login |
 
-## Tipografía
+CSS: `document.documentElement[data-theme]` + variables `--surface`, `--primary`, etc.
 
-- Familia: `ui-sans-serif, system-ui, -apple-system, Segoe UI` (igual que el CSS compilado de Tailwind del portfolio).
-- Display / body: misma familia; pesos 400–800.
+## Paleta semántica
 
-## Forma
+| Token | Dark | Light | Uso |
+|-------|------|-------|-----|
+| `surface` | `#2d2e32` | `#F4F6F5` | canvas |
+| `surfaceDim` | `#202022` | `#E8ECEA` | fondo profundo / filled input |
+| `surfaceContainer` | `#25262a` | `#FFFFFF` | cards, nav |
+| `surfaceContainerHigh` | `#2f3035` | `#EEF2F0` | chips idle, inputs |
+| `onSurface` | `#f3f4f6` | `#1A1C1E` | texto primario |
+| `onSurfaceVariant` | `#9ca3af` | `#5C6560` | texto secundario |
+| `outline` / `outlineVariant` | `#374151` / `#2a2f36` | `#C5CDC8` / `#E1E8E4` | bordes |
+| `primary` | `#15eb80` | `#0B8F55` | CTA, focus, nav activo |
+| `onPrimary` | `#042016` | `#FFFFFF` | texto sobre primary |
+| `primaryContainer` | `rgba(21,235,128,.14)` | `#C8F7DC` | chip/nav selected |
+| `onPrimaryContainer` | `#64f4ac` | `#045C38` | texto en container |
+| `secondary` | `#64f4ac` | `#3D6B5C` | labels / eyebrow |
+| `error` / `errorContainer` | `#e57373` / tint | `#B3261E` / `#F9DEDC` | errores |
+| `hanko` | `#BC002D` | `#BC002D` | brand only (hinomaru) |
 
-- Radios: chips/tags `3px` (como badges del hero); inputs/cards `10–14px`.
-- Sombras: mínimas; atmósfera con gradiente radial suave del acento.
-- Botones: outline acento o fill `accentDim`; targets ≥ 44px.
+Aliases legacy (`bg`, `ink`, `card`, `accent`, …) siguen mapeados para no romper pantallas.
 
-## Modo
+## Tipografía (Material)
 
-El portfolio es **dark-first**. Nihon Planner adopta dark como default (sin toggle claro en v1).
+Familia: **Roboto** + system fallback. Roles: `display` 28/700 · `title` 22/700 · `body` 14/400 · `label` 12/600 · `caption` 11/400.
+
+## Forma / elevación
+
+- Radios: 8 / 12 / 16 / pill (chips).
+- Elevation 1: cards + nav. Elevation 2: sheets/FAB (futuro).
+- Inputs: filled (`surfaceContainerHigh` + underline 2px primary on focus).
+- Nav: indicator pill + `primaryContainer` en tab activo + `safe-area-inset-bottom`.
+- Targets táctiles ≥ 44–48 px.
+
+## UX (auditoría)
+
+Problemas abordados en este refactor: tokens no semánticos, nav sin indicador/safe-area, inputs sin focus, chips/CTAs inconsistentes, type scale ad-hoc.
+
+Sin MUI: se copian principios MD3 (elevation, state containers, type roles), no la librería.
 
 ## Gate de diseño
 
-Pantalla Resumen renderizada con estos tokens — pendiente de aprobación explícita de Product (Emma) antes del merge definitivo a main.
+Revisar Resumen en **light y dark** antes de merge definitivo a main.

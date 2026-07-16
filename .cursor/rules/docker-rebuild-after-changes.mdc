@@ -1,0 +1,34 @@
+---
+description: Tras cada cambio de código, reconstruir/recrear contenedores Docker para que se vean reflejados
+alwaysApply: true
+---
+
+# Docker: reconstruir tras cada cambio
+
+Este proyecto corre **100% en Docker** (`docker compose --profile dev`). El hot reload a veces no alcanza (env, `theme`, build layers, o Vite cache).
+
+## Obligatorio después de editar código
+
+1. Recrear el stack de desarrollo para que el cambio sea visible:
+   ```bash
+   docker compose --profile dev up -d --force-recreate --build
+   ```
+2. Verificar que responde:
+   - Front: http://localhost:5173
+   - Health: http://localhost:8787/health
+3. Si el cambio tocó solo archivos montados por bind mount (`src/`, `server/`) y el contenedor ya estaba up, como mínimo:
+   ```bash
+   docker compose --profile dev up -d --force-recreate
+   ```
+   Preferí `--build` si cambió `package.json`, `Dockerfile`, `.env` o dependencias nativas.
+
+## No asumir
+
+- No digas “listo, recargá el browser” sin haber recreado/rebuildado contenedores en la misma sesión de cambios.
+- No dejes `node_modules` en el host: las deps viven en el volumen anónimo del contenedor.
+
+## Prod
+
+```bash
+docker compose --profile prod up -d --build --force-recreate
+```

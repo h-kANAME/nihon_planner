@@ -1,13 +1,47 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { storage, setStorageMode } from "./lib/storage";
 import { api } from "./lib/apiClient";
-import { C, fonts } from "./theme";
+import { C, S, applyTheme, resolveInitialMode, persistMode } from "./theme";
 import Login from "./Login.jsx";
+import Markdown from "./components/Markdown.jsx";
 
 /* ============================================================
    NIHON PLANNER — Viaje a Japón (20 días, pareja, ARS/USD/JPY)
-   Tokens visuales: kyz.com.ar (dark + accent) + hinomaru.
+   Tokens: kyz + Material (light/dark) + hinomaru.
    ============================================================ */
+
+function PowerIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 2v10"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M6.5 5.2a8 8 0 1 0 11 0"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function CopyIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="2" />
+      <path
+        d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 
 const CATS = [
   { id: "comida", label: "Comida", kanji: "食" },
@@ -67,6 +101,9 @@ function makeConverter(rates) {
 
 /* ============================================================ */
 export default function App() {
+  const [themeMode, setThemeMode] = useState(resolveInitialMode);
+  applyTheme(themeMode);
+
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [tab, setTab] = useState("resumen");
@@ -76,6 +113,11 @@ export default function App() {
   const [logistics, setLogistics] = useState({ flights: [], stays: [], bookings: [], docs: DEFAULT_DOCS });
   const [rates, setRates] = useState({ usdArs: 1300, usdJpy: 155, source: "manual", updatedAt: null });
   const [sessions, setSessions] = useState([]);
+
+  useEffect(() => {
+    applyTheme(themeMode);
+    persistMode(themeMode);
+  }, [themeMode]);
 
   useEffect(() => {
     (async () => {
@@ -162,19 +204,25 @@ export default function App() {
   if (!authChecked) {
     return (
       <div style={{ ...S.app, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <div style={{ color: C.soft, fontSize: 14, letterSpacing: 2 }}>準備中 · cargando…</div>
+        <div style={{ color: C.onSurfaceVariant, fontSize: 14, letterSpacing: 2 }}>準備中 · cargando…</div>
       </div>
     );
   }
 
   if (!user) {
-    return <Login onSuccess={(u) => { setStorageMode(true); setUser(u); }} />;
+    return (
+      <Login
+        themeMode={themeMode}
+        onToggleTheme={() => setThemeMode((m) => (m === "light" ? "dark" : "light"))}
+        onSuccess={(u) => { setStorageMode(true); setUser(u); }}
+      />
+    );
   }
 
   if (!ready) {
     return (
       <div style={{ ...S.app, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <div style={{ color: C.soft, fontSize: 14, letterSpacing: 2 }}>準備中 · cargando…</div>
+        <div style={{ color: C.onSurfaceVariant, fontSize: 14, letterSpacing: 2 }}>準備中 · cargando…</div>
       </div>
     );
   }
@@ -186,9 +234,26 @@ export default function App() {
           <div style={S.eyebrow}>日本 · 20 días · dos viajeros</div>
           <h1 style={S.title}>Nihon Planner</h1>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button style={S.ghost} onClick={logout} title={user.email}>salir</button>
-          <div style={S.stamp} title="Hinomaru">
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <button
+            type="button"
+            style={S.ghost}
+            onClick={() => setThemeMode((m) => (m === "light" ? "dark" : "light"))}
+            title={themeMode === "light" ? "Tema oscuro" : "Tema claro"}
+            aria-label={themeMode === "light" ? "Cambiar a tema oscuro" : "Cambiar a tema claro"}
+          >
+            {themeMode === "light" ? "暗" : "明"}
+          </button>
+          <button
+            type="button"
+            style={S.ghost}
+            onClick={logout}
+            title={`Cerrar sesión (${user.email})`}
+            aria-label="Cerrar sesión"
+          >
+            <PowerIcon />
+          </button>
+          <div style={S.stamp} title="Hinomaru" aria-hidden>
             <span style={S.hinomaru} />
           </div>
         </div>
@@ -204,19 +269,29 @@ export default function App() {
         {tab === "ai" && <Asistente sessions={sessions} setSessions={setSessions} />}
       </main>
 
-      <nav style={S.nav}>
+      <nav style={S.nav} aria-label="Principal">
         {[
           ["resumen", "概", "Resumen"],
           ["gastos", "費", "Gastos"],
           ["conversor", "両", "Conversor"],
           ["plan", "旅", "Plan"],
           ["ai", "助", "AI"],
-        ].map(([id, kanji, label]) => (
-          <button key={id} onClick={() => setTab(id)} style={{ ...S.navBtn, color: tab === id ? C.accent : C.soft }}>
-            <span style={{ fontSize: 18, lineHeight: 1 }}>{kanji}</span>
-            <span style={{ fontSize: 10, letterSpacing: 0.5 }}>{label}</span>
-          </button>
-        ))}
+        ].map(([id, kanji, label]) => {
+          const active = tab === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              aria-current={active ? "page" : undefined}
+              style={{ ...S.navBtn, ...(active ? S.navBtnActive : {}) }}
+            >
+              {active && <span style={S.navIndicator} aria-hidden />}
+              <span style={{ fontSize: 17, lineHeight: 1, fontWeight: active ? 700 : 500 }}>{kanji}</span>
+              <span style={{ fontSize: 11, letterSpacing: 0.3, fontWeight: active ? 600 : 400 }}>{label}</span>
+            </button>
+          );
+        })}
       </nav>
     </div>
   );
@@ -391,148 +466,421 @@ function EditableRate({ label, value, onChange, hint }) {
   );
 }
 
-/* ================= PLAN / LOGÍSTICA ================= */
+/* ================= PLAN / LOGÍSTICA (uso intensivo: sheet + lista contenida) ================= */
 const fmtDT = (v) => {
   if (!v) return null;
   const d = new Date(v);
   return isNaN(d) ? v : d.toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
 };
 
+const PLAN_PAGE = { docs: 8, flights: 8, stays: 6, bookings: 8 };
+
 function Plan({ logistics, setLogistics }) {
   const [section, setSection] = useState("docs");
   const upd = (patch) => setLogistics({ ...logistics, ...patch });
+
   return (
     <div>
       <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
         {[["docs", "Documentación"], ["flights", "Vuelos"], ["stays", "Alojamiento"], ["bookings", "Reservas"]].map(([id, l]) => (
-          <button key={id} onClick={() => setSection(id)} style={{ ...S.chip, ...(section === id ? S.chipOn : {}) }}>{l}</button>
+          <button key={id} type="button" onClick={() => setSection(id)} style={{ ...S.chip, ...(section === id ? S.chipOn : {}) }}>{l}</button>
         ))}
       </div>
 
       {section === "docs" && (
-        <Card>
-          <div style={S.label}>Checklist de documentación</div>
-          {logistics.docs.map((d) => (
-            <DocItem key={d.id} doc={d}
-              onToggle={() => upd({ docs: logistics.docs.map((x) => (x.id === d.id ? { ...x, done: !x.done } : x)) })}
-              onEdit={(label) => upd({ docs: logistics.docs.map((x) => (x.id === d.id ? { ...x, label } : x)) })}
-              onDelete={() => upd({ docs: logistics.docs.filter((x) => x.id !== d.id) })} />
-          ))}
-          <AddInline placeholder="Agregar ítem…" onAdd={(t) => upd({ docs: [...logistics.docs, { id: uid(), label: t, done: false }] })} />
-        </Card>
+        <PlanList
+          title="Checklist de documentación"
+          items={logistics.docs}
+          fields={[["label", "Ítem de documentación", "text"]]}
+          primaryKey="label"
+          pageSize={PLAN_PAGE.docs}
+          defaultFilter="pending"
+          dateKey={null}
+          searchKeys={["label"]}
+          onChange={(items) => upd({ docs: items })}
+        />
       )}
 
       {section === "flights" && (
-        <ListSection title="Vuelos y traslados internos" items={logistics.flights}
-          fields={[["route", "Ruta (EZE → NRT)", "text"], ["datetime", "Fecha y hora de salida", "datetime"], ["code", "Aerolínea / código", "text"]]}
-          onChange={(items) => upd({ flights: items })} />
+        <PlanList
+          title="Vuelos y traslados internos"
+          items={logistics.flights}
+          fields={[
+            ["route", "Ruta (EZE → NRT)", "text"],
+            ["datetime", "Fecha y hora de salida", "datetime"],
+            ["code", "Aerolínea / código", "text"],
+          ]}
+          primaryKey="route"
+          pageSize={PLAN_PAGE.flights}
+          dateKey="datetime"
+          searchKeys={["route", "code"]}
+          onChange={(items) => upd({ flights: items })}
+        />
       )}
 
       {section === "stays" && (
-        <ListSection title="Alojamiento por ciudad" items={logistics.stays}
-          fields={[["city", "Ciudad (Tokyo, Kyoto…)", "text"], ["name", "Hotel / Airbnb", "text"], ["checkin", "Check-in", "datetime"], ["checkout", "Check-out", "datetime"]]}
-          onChange={(items) => upd({ stays: items })} />
+        <PlanList
+          title="Alojamiento por ciudad"
+          items={logistics.stays}
+          fields={[
+            ["city", "Ciudad (Tokyo, Kyoto…)", "text"],
+            ["name", "Hotel / Airbnb", "text"],
+            ["checkin", "Check-in", "datetime"],
+            ["checkout", "Check-out", "datetime"],
+          ]}
+          primaryKey="name"
+          pageSize={PLAN_PAGE.stays}
+          dateKey="checkin"
+          searchKeys={["city", "name"]}
+          onChange={(items) => upd({ stays: items })}
+          validate={(form) => {
+            if (form.checkin && form.checkout && form.checkout < form.checkin) {
+              return "El check-out no puede ser anterior al check-in";
+            }
+            return null;
+          }}
+        />
       )}
 
       {section === "bookings" && (
-        <ListSection title="Actividades y reservas" items={logistics.bookings}
-          fields={[["name", "Actividad (Ghibli, TeamLab, Daikoku tour…)", "text"], ["datetime", "Fecha y hora", "datetime"]]}
-          onChange={(items) => upd({ bookings: items })} />
+        <PlanList
+          title="Actividades y reservas"
+          items={logistics.bookings}
+          fields={[
+            ["name", "Actividad (Ghibli, TeamLab, Daikoku tour…)", "text"],
+            ["datetime", "Fecha y hora", "datetime"],
+          ]}
+          primaryKey="name"
+          pageSize={PLAN_PAGE.bookings}
+          dateKey="datetime"
+          searchKeys={["name"]}
+          onChange={(items) => upd({ bookings: items })}
+        />
       )}
     </div>
   );
 }
 
-function DocItem({ doc, onToggle, onEdit, onDelete }) {
-  const [editing, setEditing] = useState(false);
-  const [v, setV] = useState(doc.label);
-  const saveEdit = () => { if (v.trim()) onEdit(v.trim()); setEditing(false); };
+function PlanEditSheet({ open, title, fields, values, error, onChange, onSave, onClose }) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
   return (
-    <div style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "8px 0", borderBottom: `1px solid ${C.line}` }}>
-      <input type="checkbox" checked={doc.done} style={{ accentColor: C.hanko, marginTop: 3, cursor: "pointer" }} onChange={onToggle} />
-      {editing ? (
-        <input autoFocus style={{ ...S.input, flex: 1, marginBottom: 0, padding: "6px 8px" }} value={v}
-          onChange={(e) => setV(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditing(false); }}
-          onBlur={saveEdit} />
-      ) : (
-        <span style={{ flex: 1, fontSize: 14, textDecoration: doc.done ? "line-through" : "none", color: doc.done ? C.soft : C.ink }}>{doc.label}</span>
-      )}
-      <button style={S.ghost} title="Editar" onClick={() => { setV(doc.label); setEditing(true); }}>✎</button>
-      <button style={S.ghost} title="Eliminar" onClick={onDelete}>✕</button>
+    <div
+      role="presentation"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        background: "rgba(0,0,0,0.45)",
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 520,
+          maxHeight: "85vh",
+          display: "flex",
+          flexDirection: "column",
+          background: C.surfaceContainer,
+          borderRadius: "16px 16px 0 0",
+          boxShadow: C.elevation2,
+          paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
+        }}
+      >
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "14px 16px",
+          borderBottom: `1px solid ${C.outlineVariant}`,
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 16 }}>{title}</div>
+          <button type="button" style={S.ghost} onClick={onClose} aria-label="Cerrar">✕</button>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", WebkitOverflowScrolling: "touch" }}>
+          {fields.map(([k, ph, type], idx) => (
+            <div key={k}>
+              <div style={{ fontSize: 11, color: C.onSurfaceVariant, margin: "2px 0 4px" }}>{ph}</div>
+              <input
+                autoFocus={idx === 0}
+                style={{ ...S.input, marginBottom: 12 }}
+                type={type === "datetime" ? "datetime-local" : "text"}
+                placeholder={ph}
+                value={values[k] || ""}
+                onChange={(e) => onChange({ ...values, [k]: e.target.value })}
+              />
+            </div>
+          ))}
+          {error && <div style={S.warn}>{error}</div>}
+        </div>
+        <div style={{
+          display: "flex",
+          gap: 8,
+          padding: "10px 16px 4px",
+          borderTop: `1px solid ${C.outlineVariant}`,
+          background: C.surfaceContainer,
+        }}>
+          <button type="button" style={{ ...S.secondary, flex: 1, marginTop: 0 }} onClick={onClose}>Cancelar</button>
+          <button type="button" style={{ ...S.primary, flex: 1.4, marginTop: 0 }} onClick={onSave}>Guardar</button>
+        </div>
+      </div>
     </div>
   );
 }
 
-function ListSection({ title, items, fields, onChange }) {
+function PlanList({
+  title,
+  items,
+  fields,
+  primaryKey,
+  pageSize,
+  dateKey,
+  searchKeys,
+  onChange,
+  defaultFilter = "all",
+  validate,
+}) {
   const empty = Object.fromEntries(fields.map(([k]) => [k, ""]));
-  const [form, setForm] = useState(empty);
-  const [editId, setEditId] = useState(null);
-  const formRef = useRef(null);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState(defaultFilter);
+  const [sort, setSort] = useState(dateKey ? "dateAsc" : "az");
+  const [visible, setVisible] = useState(pageSize);
+  const [sheet, setSheet] = useState(null); // null | { mode: 'create'|'edit', id?, values }
+  const [sheetError, setSheetError] = useState(null);
 
-  const submit = () => {
-    if (!fields.some(([k]) => (form[k] || "").trim())) return;
-    if (editId) {
-      onChange(items.map((x) => (x.id === editId ? { ...x, ...form } : x)));
-      setEditId(null);
+  useEffect(() => {
+    setVisible(pageSize);
+  }, [query, filter, sort, pageSize, items.length]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let list = items.filter((it) => {
+      if (filter === "pending" && it.done) return false;
+      if (filter === "done" && !it.done) return false;
+      if (!q) return true;
+      return searchKeys.some((k) => String(it[k] || "").toLowerCase().includes(q));
+    });
+
+    list = [...list].sort((a, b) => {
+      if (sort === "az") {
+        return String(a[primaryKey] || "").localeCompare(String(b[primaryKey] || ""), "es");
+      }
+      if (!dateKey) return 0;
+      const da = a[dateKey] || "";
+      const db = b[dateKey] || "";
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      return sort === "dateAsc" ? da.localeCompare(db) : db.localeCompare(da);
+    });
+    return list;
+  }, [items, query, filter, sort, dateKey, primaryKey, searchKeys]);
+
+  const shown = filtered.slice(0, visible);
+  const hasMore = visible < filtered.length;
+
+  const openCreate = () => {
+    setSheetError(null);
+    setSheet({ mode: "create", values: { ...empty } });
+  };
+  const openEdit = (it) => {
+    setSheetError(null);
+    setSheet({
+      mode: "edit",
+      id: it.id,
+      values: Object.fromEntries(fields.map(([k]) => [k, it[k] || ""])),
+    });
+  };
+  const closeSheet = () => {
+    setSheet(null);
+    setSheetError(null);
+  };
+
+  const saveSheet = () => {
+    if (!sheet) return;
+    const form = sheet.values;
+    if (!fields.some(([k]) => (form[k] || "").trim())) {
+      setSheetError("Completá al menos un campo");
+      return;
+    }
+    if (validate) {
+      const err = validate(form);
+      if (err) { setSheetError(err); return; }
+    }
+    if (sheet.mode === "edit") {
+      onChange(items.map((x) => (x.id === sheet.id ? { ...x, ...form } : x)));
     } else {
       onChange([...items, { id: uid(), ...form, done: false }]);
     }
-    setForm(empty);
+    closeSheet();
   };
-  const startEdit = (it) => {
-    setEditId(it.id);
-    setForm(Object.fromEntries(fields.map(([k]) => [k, it[k] || ""])));
-    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  const removeItem = (id) => {
+    if (!window.confirm("¿Eliminar este ítem?")) return;
+    onChange(items.filter((x) => x.id !== id));
   };
-  const cancelEdit = () => { setEditId(null); setForm(empty); };
 
   return (
     <Card>
-      <div style={S.label}>{title}</div>
-      {items.length === 0 && <Empty text="Nada cargado todavía." />}
-      {items.map((it) => {
-        const [pk] = fields[0];
-        const metaParts = fields.slice(1)
-          .map(([k, ph, type]) => (it[k] ? (type === "datetime" ? `${ph}: ${fmtDT(it[k])}` : it[k]) : null))
-          .filter(Boolean);
-        return (
-          <div key={it.id} style={{
-            display: "flex", justifyContent: "space-between", alignItems: "flex-start",
-            padding: "10px 0", borderBottom: `1px solid ${C.line}`,
-            opacity: editId === it.id ? 0.5 : 1,
-          }}>
-            <div style={{ fontSize: 14 }}>
-              <b style={{ textDecoration: it.done ? "line-through" : "none", color: it.done ? C.soft : C.ink }}>{it[pk] || "(sin título)"}</b>
-              {it.done && <span style={{ marginLeft: 6, fontSize: 11, color: C.matcha, fontWeight: 700 }}>✓ realizado</span>}
-              {metaParts.length > 0 && <Meta>{metaParts.join(" · ")}</Meta>}
-            </div>
-            <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-              <button style={{ ...S.ghost, color: it.done ? C.matcha : C.soft }} title={it.done ? "Marcar pendiente" : "Marcar realizado"}
-                onClick={() => onChange(items.map((x) => (x.id === it.id ? { ...x, done: !x.done } : x)))}>
-                {it.done ? "✓" : "○"}
-              </button>
-              <button style={S.ghost} title="Editar" onClick={() => startEdit(it)}>✎</button>
-              <button style={S.ghost} title="Eliminar" onClick={() => onChange(items.filter((x) => x.id !== it.id))}>✕</button>
-            </div>
-          </div>
-        );
-      })}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <div style={{ ...S.label, marginBottom: 0 }}>{title}</div>
+        <button type="button" style={{ ...S.secondary, minHeight: 40, padding: "6px 12px" }} onClick={openCreate}>+ Nuevo</button>
+      </div>
 
-      <div style={{ marginTop: 12 }} ref={formRef}>
-        {editId && <div style={{ fontSize: 12, color: C.hanko, marginBottom: 6, fontWeight: 600 }}>Editando ítem — guardá o cancelá</div>}
-        {fields.map(([k, ph, type]) => (
-          <div key={k}>
-            {type === "datetime" && <div style={{ fontSize: 11, color: C.soft, margin: "2px 0 3px" }}>{ph}</div>}
-            <input style={S.input} type={type === "datetime" ? "datetime-local" : "text"} placeholder={ph}
-              value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
-          </div>
-        ))}
-        <div style={{ display: "flex", gap: 8 }}>
-          <button style={{ ...S.primary, flex: 1 }} onClick={submit}>{editId ? "Guardar cambios" : "Agregar"}</button>
-          {editId && <button style={{ ...S.secondary, marginTop: 4 }} onClick={cancelEdit}>Cancelar</button>}
+      <div style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 2,
+        background: C.surfaceContainer,
+        paddingBottom: 8,
+        marginBottom: 4,
+        borderBottom: `1px solid ${C.outlineVariant}`,
+      }}>
+        <input
+          style={{ ...S.input, marginBottom: 8 }}
+          type="search"
+          inputMode="search"
+          placeholder="Buscar…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Buscar en el plan"
+        />
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+          {[
+            ["all", "Todos"],
+            ["pending", "Pendientes"],
+            ["done", "Hechos"],
+          ].map(([id, l]) => (
+            <button key={id} type="button" onClick={() => setFilter(id)} style={{ ...S.chip, minHeight: 36, padding: "6px 10px", ...(filter === id ? S.chipOn : {}) }}>{l}</button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {(dateKey
+            ? [["dateAsc", "Fecha ↑"], ["dateDesc", "Fecha ↓"], ["az", "A–Z"]]
+            : [["az", "A–Z"]]
+          ).map(([id, l]) => (
+            <button key={id} type="button" onClick={() => setSort(id)} style={{ ...S.chip, minHeight: 32, padding: "4px 10px", fontSize: 11, ...(sort === id ? S.chipOn : {}) }}>{l}</button>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: C.onSurfaceVariant, marginTop: 8 }}>
+          Mostrando {shown.length} de {filtered.length}
+          {filtered.length !== items.length ? ` · filtrados de ${items.length}` : ""}
         </div>
       </div>
+
+      <div style={{
+        maxHeight: "min(55vh, 420px)",
+        overflowY: "auto",
+        WebkitOverflowScrolling: "touch",
+        marginTop: 4,
+      }}>
+        {items.length === 0 && <Empty text="Nada cargado todavía. Tocá + Nuevo." />}
+        {items.length > 0 && filtered.length === 0 && <Empty text="Sin resultados para este filtro o búsqueda." />}
+
+        {shown.map((it) => {
+          const metaParts = fields
+            .filter(([k]) => k !== primaryKey)
+            .map(([k, ph, type]) => (it[k] ? (type === "datetime" ? `${ph}: ${fmtDT(it[k])}` : it[k]) : null))
+            .filter(Boolean);
+          const editing = sheet?.mode === "edit" && sheet.id === it.id;
+          return (
+            <div
+              key={it.id}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                padding: "12px 8px",
+                borderBottom: `1px solid ${C.outlineVariant}`,
+                borderRadius: 8,
+                background: editing ? C.primaryContainer : "transparent",
+              }}
+            >
+              <div style={{ fontSize: 14, flex: 1, minWidth: 0, paddingRight: 8 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                  {primaryKey === "label" && (
+                    <input
+                      type="checkbox"
+                      checked={!!it.done}
+                      style={{ accentColor: C.primary, marginTop: 3, cursor: "pointer", width: 18, height: 18, flexShrink: 0 }}
+                      onChange={() => onChange(items.map((x) => (x.id === it.id ? { ...x, done: !x.done } : x)))}
+                      aria-label="Marcar realizado"
+                    />
+                  )}
+                  <div style={{ minWidth: 0 }}>
+                    <b style={{
+                      textDecoration: it.done ? "line-through" : "none",
+                      color: it.done ? C.onSurfaceVariant : C.onSurface,
+                      wordBreak: "break-word",
+                    }}>
+                      {it[primaryKey] || "(sin título)"}
+                    </b>
+                    {it.done && primaryKey !== "label" && (
+                      <span style={{ marginLeft: 6, fontSize: 11, color: C.secondary, fontWeight: 700 }}>✓ realizado</span>
+                    )}
+                    {metaParts.length > 0 && <Meta>{metaParts.join(" · ")}</Meta>}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 0, flexShrink: 0 }}>
+                {primaryKey !== "label" && (
+                  <button
+                    type="button"
+                    style={{ ...S.ghost, color: it.done ? C.secondary : C.onSurfaceVariant, minWidth: 40, minHeight: 40 }}
+                    title={it.done ? "Marcar pendiente" : "Marcar realizado"}
+                    onClick={() => onChange(items.map((x) => (x.id === it.id ? { ...x, done: !x.done } : x)))}
+                  >
+                    {it.done ? "✓" : "○"}
+                  </button>
+                )}
+                <button type="button" style={{ ...S.ghost, minWidth: 40, minHeight: 40 }} title="Editar" onClick={() => openEdit(it)}>✎</button>
+                <button type="button" style={{ ...S.ghost, minWidth: 40, minHeight: 40 }} title="Eliminar" onClick={() => removeItem(it.id)}>✕</button>
+              </div>
+            </div>
+          );
+        })}
+
+        {hasMore && (
+          <button
+            type="button"
+            style={{ ...S.secondary, width: "100%", marginTop: 10, marginBottom: 4 }}
+            onClick={() => setVisible((n) => n + pageSize)}
+          >
+            Cargar más ({filtered.length - visible} restantes)
+          </button>
+        )}
+      </div>
+
+      <PlanEditSheet
+        open={!!sheet}
+        title={sheet?.mode === "edit" ? "Editar ítem" : "Nuevo ítem"}
+        fields={fields}
+        values={sheet?.values || empty}
+        error={sheetError}
+        onChange={(values) => setSheet((s) => (s ? { ...s, values } : s))}
+        onSave={saveSheet}
+        onClose={closeSheet}
+      />
     </Card>
   );
 }
@@ -547,6 +895,7 @@ function Asistente({ sessions, setSessions }) {
   const [error, setError] = useState(null);
   const [exportText, setExportText] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [copiedMsgKey, setCopiedMsgKey] = useState(null);
   const [importing, setImporting] = useState(false);
   const bottomRef = useRef(null);
   const importRef = useRef(null);
@@ -670,6 +1019,16 @@ function Asistente({ sessions, setSessions }) {
     }
   };
 
+  const copyMessage = async (key, text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedMsgKey(key);
+      setTimeout(() => setCopiedMsgKey((k) => (k === key ? null : k)), 1600);
+    } catch {
+      setError("No se pudo copiar al portapapeles");
+    }
+  };
+
   const send = async () => {
     const text = input.trim();
     if (!text || busy) return;
@@ -736,16 +1095,54 @@ function Asistente({ sessions, setSessions }) {
             ? "Preguntame por rutas, itinerarios, JR Pass, Daikoku PA… La memoria queda en el server."
             : "Consultá sobre lo ya cargado: gastos, reservas, documentación. Respondo solo con tus datos."} />
         )}
-        {msgs.map((m, i) => (
-          <div key={m.id || i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", marginBottom: 8 }}>
-            <div style={{
-              maxWidth: "85%", padding: "10px 12px", borderRadius: 12, fontSize: 14, lineHeight: 1.5, whiteSpace: "pre-wrap",
-              background: m.role === "user" ? C.accentDim : C.bgDeep,
-              color: m.role === "user" ? "#fff" : C.ink,
-              border: m.role === "user" ? "none" : `1px solid ${C.line}`,
-            }}>{m.content}</div>
-          </div>
-        ))}
+        {msgs.map((m, i) => {
+          const key = m.id ?? `${m.role}-${i}`;
+          const isAssistant = m.role === "assistant";
+          return (
+            <div key={key} style={{ display: "flex", justifyContent: isAssistant ? "flex-start" : "flex-end", marginBottom: 10 }}>
+              <div style={{
+                maxWidth: "92%",
+                position: "relative",
+                padding: isAssistant ? "10px 14px 12px" : "10px 14px",
+                borderRadius: isAssistant ? "16px 16px 16px 4px" : "16px 16px 4px 16px",
+                fontSize: 14, lineHeight: 1.5,
+                whiteSpace: isAssistant ? "normal" : "pre-wrap",
+                background: isAssistant ? C.surfaceContainer : C.primary,
+                color: isAssistant ? C.onSurface : C.onPrimary,
+                border: isAssistant ? `1px solid ${C.outlineVariant}` : "none",
+                boxShadow: C.elevation1,
+              }}>
+                {isAssistant && (
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4, marginTop: -2 }}>
+                    <button
+                      type="button"
+                      onClick={() => copyMessage(key, m.content)}
+                      title={copiedMsgKey === key ? "Copiado" : "Copiar respuesta"}
+                      aria-label="Copiar respuesta del asistente"
+                      style={{
+                        ...S.ghost,
+                        minHeight: 32,
+                        minWidth: 32,
+                        padding: 4,
+                        color: copiedMsgKey === key ? C.primary : C.onSurfaceVariant,
+                        opacity: 0.85,
+                      }}
+                    >
+                      {copiedMsgKey === key ? (
+                        <span style={{ fontSize: 12, fontWeight: 700 }}>✓</span>
+                      ) : (
+                        <CopyIcon size={15} />
+                      )}
+                    </button>
+                  </div>
+                )}
+                {isAssistant
+                  ? <Markdown content={m.content} C={C} />
+                  : m.content}
+              </div>
+            </div>
+          );
+        })}
         {busy && <div style={{ color: C.soft, fontSize: 13, padding: 8 }}>考え中… pensando</div>}
         {error && <div style={S.warn}>Error: {error}</div>}
         <div ref={bottomRef} />
@@ -763,7 +1160,7 @@ function Asistente({ sessions, setSessions }) {
 
 /* ================= átomos ================= */
 function Card({ children }) {
-  return <div style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: 16, marginBottom: 12 }}>{children}</div>;
+  return <div style={S.card}>{children}</div>;
 }
 function Row({ k, v, accent }) {
   return (
@@ -790,57 +1187,4 @@ function AddInline({ placeholder, onAdd }) {
   );
 }
 
-/* ================= estilos ================= */
-const S = {
-  app: {
-    minHeight: "100vh",
-    background: `radial-gradient(ellipse at 80% -10%, ${C.accentSoft} 0%, transparent 45%), ${C.bg}`,
-    color: C.ink,
-    fontFamily: fonts.body,
-    maxWidth: 520, margin: "0 auto", paddingBottom: 76,
-  },
-  header: {
-    display: "flex", justifyContent: "space-between", alignItems: "center",
-    padding: "18px 16px 10px",
-  },
-  eyebrow: { fontSize: 11, letterSpacing: 2.5, textTransform: "uppercase", color: C.matcha },
-  title: { margin: "2px 0 0", fontSize: 24, fontWeight: 800, letterSpacing: -0.5 },
-  stamp: {
-    width: 44, height: 44, borderRadius: "50%", background: "#fff",
-    display: "flex", alignItems: "center", justifyContent: "center",
-    border: `1px solid ${C.line}`,
-  },
-  hinomaru: {
-    width: 26, height: 26, borderRadius: "50%", background: C.hanko, display: "block",
-  },
-  main: { padding: "4px 16px" },
-  nav: {
-    position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
-    width: "100%", maxWidth: 520, display: "flex",
-    background: C.card, borderTop: `1px solid ${C.line}`, padding: "8px 0 12px",
-  },
-  navBtn: { flex: 1, background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", padding: 4, minHeight: 44 },
-  label: { fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: C.matcha, marginBottom: 10 },
-  input: {
-    width: "100%", boxSizing: "border-box", padding: "11px 12px", fontSize: 14,
-    border: `1px solid ${C.line}`, borderRadius: 10, background: C.inputBg, color: C.ink, marginBottom: 8, outline: "none",
-  },
-  primary: {
-    width: "100%", padding: "12px", background: C.accentDim, color: "#fff", border: "none",
-    borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", marginTop: 4, minHeight: 44,
-  },
-  secondary: {
-    padding: "8px 12px", background: "transparent", color: C.accent, border: `1px solid ${C.accent}`,
-    borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: "pointer", minHeight: 44,
-  },
-  ghost: { background: "none", border: "none", color: C.soft, cursor: "pointer", fontSize: 14, padding: 4, minHeight: 44, minWidth: 44 },
-  chip: {
-    padding: "7px 12px", borderRadius: 3, border: `1px solid ${C.line}`, background: C.card,
-    fontSize: 12, cursor: "pointer", color: C.ink, minHeight: 44,
-  },
-  chipOn: { background: C.accentSoft, color: C.accent, borderColor: C.accent },
-  warn: {
-    background: C.warnBg, border: `1px solid ${C.danger}`, color: C.danger,
-    fontSize: 12, padding: "8px 10px", borderRadius: 8, marginBottom: 10, lineHeight: 1.4,
-  },
-};
+/* estilos: ver buildStyles() en theme.js */

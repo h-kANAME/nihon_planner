@@ -1,9 +1,63 @@
 * { margin: 0; box-sizing: border-box; }
-body {
-  background: #2d2e32;
-  color: #f3f4f6;
-  -webkit-font-smoothing: antialiased;
+
+:root {
+  --surface: #2d2e32;
+  --surface-dim: #202022;
+  --surface-container: #25262a;
+  --on-surface: #f3f4f6;
+  --on-surface-variant: #9ca3af;
+  --outline: #374151;
+  --primary: #15eb80;
+  --theme-color: #202022;
 }
-button { font-family: inherit; }
-input, select, textarea { font-family: inherit; color: inherit; }
-option { background: #25262a; color: #f3f4f6; }
+
+html {
+  color-scheme: dark light;
+}
+
+body {
+  background: var(--surface);
+  color: var(--on-surface);
+  -webkit-font-smoothing: antialiased;
+  font-family: Roboto, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-bottom-color: var(--primary) !important;
+}
+
+option {
+  background: var(--surface-container);
+  color: var(--on-surface);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
