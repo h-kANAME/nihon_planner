@@ -1,0 +1,9 @@
+* { margin: 0; box-sizing: border-box; }
+body {
+  background: #2d2e32;
+  color: #f3f4f6;
+  -webkit-font-smoothing: antialiased;
+}
+button { font-family: inherit; }
+input, select, textarea { font-family: inherit; color: inherit; }
+option { background: #25262a; color: #f3f4f6; }

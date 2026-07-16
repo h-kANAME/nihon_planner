@@ -1,0 +1,60 @@
+services:
+  app-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      target: dev
+    env_file: .env
+    environment:
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: 8787
+      DB_PATH: /app/data/nihon.db
+      FRONTEND_ORIGIN: http://localhost:5173
+      COOKIE_SECURE: "false"
+      SERVE_STATIC: "false"
+    ports:
+      - "5173:5173"
+      - "8787:8787"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - nihon_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8787/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  app:
+    profiles: ["prod"]
+    build:
+      context: .
+      target: prod
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 8787
+      DB_PATH: /app/data/nihon.db
+      SERVE_STATIC: "true"
+      STATIC_DIR: dist
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-https://localhost}
+    ports:
+      - "${HOST_PORT:-8787}:8787"
+    volumes:
+      - nihon_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8787/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  nihon_data:
