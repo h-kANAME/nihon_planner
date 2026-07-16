@@ -4,13 +4,15 @@
 const BASE = "/api/v1";
 
 async function request(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  // Solo forzar JSON cuando hay body: DELETE/GET vacíos rompen Fastify (FST_ERR_CTP_EMPTY_JSON_BODY).
+  if (options.body != null && headers["Content-Type"] == null) {
+    headers["Content-Type"] = "application/json";
+  }
   const res = await fetch(`${BASE}${path}`, {
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
     ...options,
+    headers,
   });
   const text = await res.text();
   let data = null;
@@ -54,6 +56,8 @@ export const api = {
 
   listSessions: () => request("/sessions"),
   createSession: (body) => request("/sessions", { method: "POST", body: JSON.stringify(body) }),
+  renameSession: (id, name) =>
+    request(`/sessions/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
   deleteSession: (id) => request(`/sessions/${id}`, { method: "DELETE" }),
   getMessages: (id) => request(`/sessions/${id}/messages`),
   chat: (id, content) =>

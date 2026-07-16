@@ -109,6 +109,14 @@ Content-Type: application/json
   "name": "Itinerario Kyoto"
 }
 
+### Sessions — renombrar
+PATCH {{base}}/sessions/SESSION_ID
+Content-Type: application/json
+
+{
+  "name": "Ruta Tokio y Kyoto"
+}
+
 ### Sessions — chat
 POST {{base}}/sessions/SESSION_ID/chat
 Content-Type: application/json

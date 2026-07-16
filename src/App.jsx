@@ -897,10 +897,18 @@ function Asistente({ sessions, setSessions }) {
   const [copied, setCopied] = useState(false);
   const [copiedMsgKey, setCopiedMsgKey] = useState(null);
   const [importing, setImporting] = useState(false);
+  const [sessionBusy, setSessionBusy] = useState(false);
+  const [nameSheet, setNameSheet] = useState(null);
   const bottomRef = useRef(null);
   const importRef = useRef(null);
 
   const active = sessions.find((s) => s.id === activeId) || null;
+  const currentSession =
+    mode === "consultar"
+      ? sessions.find((s) => s.mode === "consultar") || null
+      : active?.mode === "planificar"
+        ? active
+        : null;
 
   const refreshSessions = async () => {
     const list = await api.listSessions();
@@ -915,7 +923,17 @@ function Asistente({ sessions, setSessions }) {
   };
 
   useEffect(() => {
-    if (mode === "planificar" && activeId) loadMessages(activeId).catch((e) => setError(e.message));
+    if (mode !== "planificar") return;
+    const selectedIsPlan = sessions.some((s) => s.id === activeId && s.mode === "planificar");
+    if (!selectedIsPlan) {
+      setActiveId(sessions.find((s) => s.mode === "planificar")?.id || null);
+    }
+  }, [activeId, mode, sessions]);
+
+  useEffect(() => {
+    if (mode === "planificar" && active?.mode === "planificar") {
+      loadMessages(activeId).catch((e) => setError(e.message));
+    }
     if (mode === "consultar") setMsgs([]);
   }, [activeId, mode]);
 
@@ -946,22 +964,68 @@ function Asistente({ sessions, setSessions }) {
     return created.id;
   };
 
-  const newSession = async () => {
-    const s = await api.createSession({ mode: "planificar" });
-    await refreshSessions();
-    setActiveId(s.id);
-    setMsgs([]);
+  const openNewSession = () => {
+    setNameSheet({ kind: "create", name: "" });
+  };
+
+  const saveSessionName = async (name) => {
+    setSessionBusy(true);
+    setError(null);
+    try {
+      if (nameSheet?.kind === "create") {
+        const s = await api.createSession({ mode: "planificar", name });
+        await refreshSessions();
+        setMode("planificar");
+        setActiveId(s.id);
+        setMsgs([]);
+      } else if (nameSheet?.sessionId) {
+        await api.renameSession(nameSheet.sessionId, name);
+        await refreshSessions();
+      }
+      setNameSheet(null);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSessionBusy(false);
+    }
   };
 
   const resetSession = async () => {
-    const sid = await ensureSession(mode);
-    await api.resetSession(sid);
-    setMsgs([]);
-    await refreshSessions();
+    if (!currentSession) return;
+    if (!window.confirm(`¿Limpiar la memoria de “${currentSession.name}”?\n\nSe borrarán todos sus mensajes y el resumen de contexto. La sesión seguirá existiendo.`)) return;
+    setSessionBusy(true);
+    setError(null);
+    try {
+      await api.resetSession(currentSession.id);
+      setMsgs([]);
+      await refreshSessions();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSessionBusy(false);
+    }
+  };
+
+  const deleteCurrentSession = async () => {
+    if (mode !== "planificar" || !currentSession || currentSession.mode !== "planificar") return;
+    if (!window.confirm(`¿Eliminar “${currentSession.name}”?\n\nEsta acción borra la sesión y todos sus mensajes de forma permanente.`)) return;
+    setSessionBusy(true);
+    setError(null);
+    try {
+      await api.deleteSession(currentSession.id);
+      const list = await refreshSessions();
+      const next = list.find((s) => s.mode === "planificar") || null;
+      setActiveId(next?.id || null);
+      setMsgs([]);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSessionBusy(false);
+    }
   };
 
   const openExport = async () => {
-    const sid = activeId || (await ensureSession(mode));
+    const sid = currentSession?.id || (await ensureSession(mode));
     const payload = await api.exportSession(sid);
     setCopied(false);
     setExportText(JSON.stringify(payload, null, 2));
@@ -983,7 +1047,7 @@ function Asistente({ sessions, setSessions }) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `nihon-planner-${(active?.name || "sesion").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.json`;
+      a.download = `nihon-planner-${(currentSession?.name || "sesion").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.json`;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
     } catch { /* */ }
@@ -1056,13 +1120,12 @@ function Asistente({ sessions, setSessions }) {
         <button style={{ ...S.chip, ...(mode === "planificar" ? S.chipOn : {}) }} onClick={() => setMode("planificar")}>Planificar</button>
         <button style={{ ...S.chip, ...(mode === "consultar" ? S.chipOn : {}) }} onClick={() => setMode("consultar")}>Consultar plan</button>
         <div style={{ flex: 1 }} />
-        {mode === "planificar" && <button style={S.secondary} onClick={newSession}>+ Sesión</button>}
+        {mode === "planificar" && <button style={S.secondary} onClick={openNewSession}>+ Nueva sesión</button>}
         <button style={S.secondary} onClick={() => importRef.current?.click()} disabled={importing}>
           {importing ? "Importando…" : "Importar"}
         </button>
         <input ref={importRef} type="file" accept="application/json,.json" style={{ display: "none" }} onChange={onImportFile} />
         <button style={S.secondary} onClick={openExport}>Exportar</button>
-        <button style={S.secondary} onClick={resetSession}>Reset</button>
       </div>
 
       {exportText !== null && (
@@ -1081,12 +1144,76 @@ function Asistente({ sessions, setSessions }) {
         </div>
       )}
 
-      {mode === "planificar" && planSessions.length > 0 && (
-        <select style={{ ...S.input, marginBottom: 8 }} value={activeId || ""} onChange={(e) => setActiveId(e.target.value)}>
-          {planSessions.map((s) => (
-            <option key={s.id} value={s.id}>{s.name} ({s.message_count || 0} msj)</option>
-          ))}
-        </select>
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          flexWrap: "wrap",
+          padding: 8,
+          marginBottom: 8,
+          background: C.surfaceContainer,
+          border: `1px solid ${C.outlineVariant}`,
+          borderRadius: 12,
+        }}
+      >
+        {mode === "planificar" ? (
+          planSessions.length > 0 ? (
+            <select
+              aria-label="Sesión activa"
+              style={{ ...S.input, flex: "1 1 220px", marginBottom: 0 }}
+              value={currentSession?.id || ""}
+              onChange={(e) => setActiveId(e.target.value)}
+            >
+              {planSessions.map((s) => (
+                <option key={s.id} value={s.id}>{s.name} ({s.message_count || 0} msj)</option>
+              ))}
+            </select>
+          ) : (
+            <span style={{ flex: 1, color: C.onSurfaceVariant, fontSize: 13 }}>Todavía no hay sesiones de planificación.</span>
+          )
+        ) : (
+          <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+            <div style={{ color: C.onSurface, fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {currentSession?.name || "Consultar plan"}
+            </div>
+            <div style={{ color: C.onSurfaceVariant, fontSize: 11 }}>
+              {currentSession ? `${currentSession.message_count || 0} mensajes` : "La sesión se creará con tu primera consulta"}
+            </div>
+          </div>
+        )}
+        <button
+          type="button"
+          style={S.secondary}
+          disabled={!currentSession || sessionBusy}
+          onClick={() => setNameSheet({ kind: "rename", sessionId: currentSession.id, name: currentSession.name })}
+        >
+          Renombrar
+        </button>
+        <button type="button" style={S.secondary} disabled={!currentSession || sessionBusy} onClick={resetSession}>
+          Limpiar memoria
+        </button>
+        {mode === "planificar" && (
+          <button
+            type="button"
+            style={{ ...S.secondary, color: C.error, borderColor: C.error }}
+            disabled={!currentSession || sessionBusy}
+            onClick={deleteCurrentSession}
+          >
+            Eliminar
+          </button>
+        )}
+      </div>
+
+      {nameSheet && (
+        <SessionNameSheet
+          key={`${nameSheet.kind}-${nameSheet.sessionId || "new"}`}
+          kind={nameSheet.kind}
+          initialName={nameSheet.name}
+          busy={sessionBusy}
+          onSave={saveSessionName}
+          onClose={() => !sessionBusy && setNameSheet(null)}
+        />
       )}
 
       <div style={{ flex: 1, overflowY: "auto", background: C.card, border: `1px solid ${C.line}`, borderRadius: 14, padding: 12 }}>
@@ -1154,6 +1281,87 @@ function Asistente({ sessions, setSessions }) {
           onKeyDown={(e) => e.key === "Enter" && send()} />
         <button style={{ ...S.primary, width: "auto", padding: "0 18px", marginTop: 0, minHeight: 44 }} onClick={send} disabled={busy}>➤</button>
       </div>
+    </div>
+  );
+}
+
+function SessionNameSheet({ kind, initialName, busy, onSave, onClose }) {
+  const [name, setName] = useState(initialName || "");
+  const inputRef = useRef(null);
+  const isCreate = kind === "create";
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === "Escape" && !busy) onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [busy, onClose]);
+
+  const submit = (event) => {
+    event.preventDefault();
+    const clean = name.trim();
+    if (clean && !busy) onSave(clean);
+  };
+
+  return (
+    <div
+      role="presentation"
+      onMouseDown={(event) => event.target === event.currentTarget && !busy && onClose()}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 200,
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+        background: "rgba(0, 0, 0, 0.58)",
+        padding: "12px 12px 0",
+      }}
+    >
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="session-name-title"
+        onSubmit={submit}
+        style={{
+          width: "min(100%, 480px)",
+          padding: "20px 18px max(20px, env(safe-area-inset-bottom))",
+          background: C.surfaceContainer,
+          border: `1px solid ${C.outlineVariant}`,
+          borderRadius: "20px 20px 0 0",
+          boxShadow: C.elevation2,
+        }}
+      >
+        <div id="session-name-title" style={{ color: C.onSurface, fontSize: 18, fontWeight: 800, marginBottom: 6 }}>
+          {isCreate ? "Nueva sesión" : "Renombrar sesión"}
+        </div>
+        <div style={{ color: C.onSurfaceVariant, fontSize: 13, lineHeight: 1.45, marginBottom: 16 }}>
+          Usá un nombre que te permita reconocer rápidamente el tema de esta conversación.
+        </div>
+        <label style={{ ...S.label, display: "block" }} htmlFor="session-name-input">Nombre</label>
+        <input
+          ref={inputRef}
+          id="session-name-input"
+          style={{ ...S.input, marginBottom: 6 }}
+          value={name}
+          maxLength={80}
+          placeholder="Ej. Itinerario Tokio y Kyoto"
+          onChange={(event) => setName(event.target.value)}
+          disabled={busy}
+          required
+        />
+        <div style={{ color: C.onSurfaceVariant, fontSize: 11, textAlign: "right", marginBottom: 16 }}>
+          {name.length}/80
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="button" style={{ ...S.secondary, flex: 1 }} onClick={onClose} disabled={busy}>Cancelar</button>
+          <button type="submit" style={{ ...S.primary, flex: 1, marginTop: 0 }} disabled={!name.trim() || busy}>
+            {busy ? "Guardando…" : isCreate ? "Crear sesión" : "Guardar nombre"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

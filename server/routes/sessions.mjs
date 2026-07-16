@@ -85,7 +85,7 @@ export async function sessionsRoutes(app, { db, ai, config }) {
     const body = request.body || {};
     const mode = body.mode === "consultar" ? "consultar" : "planificar";
     const name =
-      (body.name || "").trim() ||
+      String(body.name || "").trim().slice(0, 80) ||
       `Sesión · ${new Date().toLocaleDateString("es-AR")}`;
     const id = uid();
     db.prepare("INSERT INTO ai_sessions (id, name, mode) VALUES (?, ?, ?)").run(id, name, mode);
@@ -98,6 +98,30 @@ export async function sessionsRoutes(app, { db, ai, config }) {
       updated_at: s.updated_at,
       created_at: s.created_at,
     });
+  });
+
+  app.patch("/api/v1/sessions/:id", async (request, reply) => {
+    const name = String(request.body?.name || "").trim();
+    if (!name) return sendError(reply, 400, "VALIDATION", "name requerido");
+    if (name.length > 80) {
+      return sendError(reply, 400, "VALIDATION", "name no puede superar 80 caracteres");
+    }
+
+    const info = db
+      .prepare("UPDATE ai_sessions SET name = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(name, request.params.id);
+    if (!info.changes) return sendError(reply, 404, "NOT_FOUND", "Sesión no encontrada");
+
+    const s = db.prepare("SELECT * FROM ai_sessions WHERE id = ?").get(request.params.id);
+    return {
+      id: s.id,
+      name: s.name,
+      mode: s.mode,
+      message_count: messageCount(db, s.id),
+      updated_at: s.updated_at,
+      created_at: s.created_at,
+      has_summary: !!s.summary,
+    };
   });
 
   app.delete("/api/v1/sessions/:id", async (request, reply) => {
