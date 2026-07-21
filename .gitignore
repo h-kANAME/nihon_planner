@@ -10,3 +10,4 @@ nihon-planner*.json
 docs/plan.app-*.json
 docs/plan.example.cursor.json
 docs/plan.compare-report.md
+scripts/convert-plan-cursor.mjs
