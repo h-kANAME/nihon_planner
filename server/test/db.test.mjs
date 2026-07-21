@@ -10,14 +10,35 @@ import path from "node:path";
 import { openDb, migrate, uid } from "../db.mjs";
 import { seedDefaultDocs, setRates, getRates, makeConverter } from "../helpers.mjs";
 
-test("migrate + seed docs", () => {
+test("migrate + seed docs en expenses", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nihon-"));
   const dbPath = path.join(dir, "t.db");
   const db = openDb(dbPath);
   migrate(db);
   seedDefaultDocs(db, uid);
-  const n = db.prepare("SELECT COUNT(*) AS n FROM plan_items WHERE type='doc'").get().n;
+  const n = db.prepare("SELECT COUNT(*) AS n FROM expenses WHERE kind='doc'").get().n;
   assert.equal(n, 9);
+  const cols = db.prepare("PRAGMA table_info(expenses)").all().map((c) => c.name);
+  assert.ok(cols.includes("done"));
+  assert.ok(cols.includes("kind"));
+  assert.ok(cols.includes("meta_json"));
+  db.close();
+});
+
+test("expenses híbridos: monto null + dashboard", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nihon-"));
+  const db = openDb(path.join(dir, "t.db"));
+  migrate(db);
+  seedDefaultDocs(db, uid);
+  db.prepare(
+    `INSERT INTO expenses (id, description, amount, currency, category, spent_at, done, kind, meta_json)
+     VALUES ('f1', 'EZE-NRT', 1000, 'USD', 'vuelos', datetime('now'), 0, 'flight', '{"code":"LA"}')`,
+  ).run();
+  const { computeExpenseMoneyTotals } = await import("../helpers.mjs");
+  const money = computeExpenseMoneyTotals(db);
+  assert.equal(money.logistics.total, 10); // 9 docs + 1 flight
+  assert.equal(money.logistics.done, 0);
+  assert.ok(money.totals.USD >= 1000);
   db.close();
 });
 

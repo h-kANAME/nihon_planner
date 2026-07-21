@@ -40,44 +40,51 @@ Content-Type: application/json
 ### Gastos — totales
 GET {{base}}/expenses/totals
 
+### Gastos — dashboard (KPIs Resumen)
+GET {{base}}/expenses/dashboard
+
+### Gastos — doc sin monto (checklist)
+POST {{base}}/expenses
+Content-Type: application/json
+
+{
+  "description": "Visit Japan Web",
+  "amount": null,
+  "currency": null,
+  "category": "documentacion",
+  "kind": "doc",
+  "done": false
+}
+
+### Gastos — vuelo con monto
+POST {{base}}/expenses
+Content-Type: application/json
+
+{
+  "description": "EZE → NRT",
+  "amount": 1800,
+  "currency": "USD",
+  "category": "vuelos",
+  "kind": "flight",
+  "datetime_start": "2026-10-01T22:00:00.000Z",
+  "meta": { "code": "LA800" },
+  "done": false
+}
+
 ### Gastos — actualizar
 PUT {{base}}/expenses/ID
 Content-Type: application/json
 
 {
-  "amount": 1300
+  "amount": 1300,
+  "done": true
 }
 
 ### Gastos — borrar
 DELETE {{base}}/expenses/ID
 
-### Plan — listar
-GET {{base}}/plan-items
-
-### Plan — timeline
-GET {{base}}/plan-items/timeline
-
-### Plan — crear
-POST {{base}}/plan-items
-Content-Type: application/json
-
-{
-  "type": "booking",
-  "title": "TeamLab Planets",
-  "datetime_start": "2026-10-12T15:00",
-  "meta": {}
-}
-
-### Plan — toggle done
-PUT {{base}}/plan-items/ID
-Content-Type: application/json
-
-{
-  "done": true
-}
-
-### Plan — borrar
-DELETE {{base}}/plan-items/ID
+### plan-items (DEPRECADO escritura; GET lee desde expenses)
+GET {{base}}/plan-items?format=logistics
 
 ### Itinerario — get
 GET {{base}}/itinerary

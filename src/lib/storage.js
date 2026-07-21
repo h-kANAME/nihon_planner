@@ -6,7 +6,7 @@
 import { api } from "./apiClient";
 
 const PREFIX = "nihon-planner:";
-const FALLBACK_KEYS = new Set(["jp:expenses", "jp:logistics", "jp:rates", "jp:sessions"]);
+const FALLBACK_KEYS = new Set(["jp:expenses", "jp:rates", "jp:sessions"]);
 
 let useApi = true;
 
@@ -18,8 +18,6 @@ async function apiGet(key) {
   switch (key) {
     case "jp:expenses":
       return JSON.stringify(await api.getExpensesFront());
-    case "jp:logistics":
-      return JSON.stringify(await api.getLogistics());
     case "jp:rates":
       return JSON.stringify(await api.getRates());
     case "jp:sessions": {
@@ -46,9 +44,6 @@ async function apiSet(key, value) {
   switch (key) {
     case "jp:expenses":
       await api.syncExpenses(parsed);
-      return;
-    case "jp:logistics":
-      await api.syncLogistics(parsed);
       return;
     case "jp:rates":
       await api.putRates(parsed);

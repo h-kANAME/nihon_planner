@@ -42,12 +42,11 @@ export const api = {
   syncExpenses: (list) =>
     request("/expenses/sync", { method: "PUT", body: JSON.stringify(list) }),
   createExpense: (body) => request("/expenses", { method: "POST", body: JSON.stringify(body) }),
+  updateExpense: (id, body) =>
+    request(`/expenses/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   deleteExpense: (id) => request(`/expenses/${id}`, { method: "DELETE" }),
   totals: () => request("/expenses/totals"),
-
-  getLogistics: () => request("/plan-items?format=logistics"),
-  syncLogistics: (logistics) =>
-    request("/plan-items/sync-logistics", { method: "PUT", body: JSON.stringify(logistics) }),
+  expensesDashboard: () => request("/expenses/dashboard"),
 
   getItinerary: () => request("/itinerary"),
   putItineraryMeta: (body) =>

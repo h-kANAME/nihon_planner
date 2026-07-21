@@ -3,6 +3,7 @@
  */
 
 import { loadItinerary } from "./itinerary/store.mjs";
+import { parseJson, LOGISTICS_KINDS } from "./helpers.mjs";
 
 function estado(done) {
   return done ? "CUMPLIDO ✓" : "pendiente";
@@ -13,7 +14,6 @@ export function buildTripContext(db) {
   const rates = ratesRow ? JSON.parse(ratesRow.value) : { usdArs: 1300, usdJpy: 155 };
 
   const expenses = db.prepare("SELECT * FROM expenses ORDER BY spent_at DESC").all();
-  const items = db.prepare("SELECT * FROM plan_items ORDER BY datetime_start").all();
   let itineraryBlock = null;
   try {
     const it = loadItinerary(db);
@@ -43,36 +43,69 @@ export function buildTripContext(db) {
   }
 
   const toUSD = (amount, currency) => {
+    if (amount == null || !currency) return 0;
     if (currency === "USD") return amount;
     if (currency === "ARS") return amount / rates.usdArs;
     return amount / rates.usdJpy;
   };
 
   let totalUSD = 0;
-  const gastos = expenses.map((e) => {
-    const usd = toUSD(e.amount, e.currency);
-    totalUSD += usd;
-    return {
-      desc: e.description,
-      monto: e.amount,
-      moneda: e.currency,
-      cat: e.category,
-      fecha: e.spent_at?.slice(0, 10),
-    };
-  });
+  const gastos = [];
+  const flights = [];
+  const stays = [];
+  const bookings = [];
+  const docs = [];
 
-  const flights = items.filter((i) => i.type === "flight");
-  const stays = items.filter((i) => i.type === "stay");
-  const bookings = items.filter((i) => i.type === "booking");
-  const docs = items.filter((i) => i.type === "doc");
-
-  const parseMeta = (m) => {
-    try {
-      return JSON.parse(m || "{}");
-    } catch {
-      return {};
+  for (const e of expenses) {
+    if (e.amount != null && e.currency) {
+      totalUSD += toUSD(e.amount, e.currency);
     }
-  };
+    if (LOGISTICS_KINDS.has(e.kind)) {
+      const meta = parseJson(e.meta_json, {});
+      if (e.kind === "flight") {
+        flights.push({
+          ruta: e.description,
+          fecha_hora: e.datetime_start,
+          codigo: meta.code || "",
+          monto: e.amount,
+          moneda: e.currency,
+          estado: estado(!!e.done),
+        });
+      } else if (e.kind === "stay") {
+        stays.push({
+          ciudad: meta.city || "",
+          nombre: meta.name || e.description,
+          checkin: e.datetime_start,
+          checkout: e.datetime_end,
+          monto: e.amount,
+          moneda: e.currency,
+          estado: estado(!!e.done),
+        });
+      } else if (e.kind === "booking") {
+        bookings.push({
+          actividad: e.description,
+          fecha_hora: e.datetime_start,
+          monto: e.amount,
+          moneda: e.currency,
+          estado: estado(!!e.done),
+        });
+      } else if (e.kind === "doc") {
+        docs.push({
+          item: e.description,
+          estado: estado(!!e.done),
+        });
+      }
+    } else {
+      gastos.push({
+        desc: e.description,
+        monto: e.amount,
+        moneda: e.currency,
+        cat: e.category,
+        fecha: e.spent_at?.slice(0, 10),
+        estado: estado(!!e.done),
+      });
+    }
+  }
 
   const data = {
     cotizaciones: { "1 USD en ARS": rates.usdArs, "1 USD en JPY": rates.usdJpy },
@@ -82,42 +115,14 @@ export function buildTripContext(db) {
       ARS: Math.round(totalUSD * rates.usdArs),
     },
     gastos,
-    vuelos: flights.map((f) => {
-      const meta = parseMeta(f.meta);
-      return {
-        ruta: f.title,
-        fecha_hora: f.datetime_start,
-        codigo: meta.code || "",
-        estado: estado(!!f.done),
-      };
-    }),
-    alojamientos: stays.map((s) => {
-      const meta = parseMeta(s.meta);
-      return {
-        ciudad: meta.city || "",
-        nombre: fTitle(s.title, meta.name),
-        checkin: s.datetime_start,
-        checkout: s.datetime_end,
-        estado: estado(!!s.done),
-      };
-    }),
-    reservas: bookings.map((b) => ({
-      actividad: b.title,
-      fecha_hora: b.datetime_start,
-      estado: estado(!!b.done),
-    })),
-    documentacion: docs.map((d) => ({
-      item: d.title,
-      estado: estado(!!d.done),
-    })),
+    vuelos: flights,
+    alojamientos: stays,
+    reservas: bookings,
+    documentacion: docs,
     itinerario: itineraryBlock,
   };
 
   return JSON.stringify(data);
-}
-
-function fTitle(title, name) {
-  return name || title;
 }
 
 export function systemPromptFor(mode, tripJson, summary) {

@@ -1,14 +1,126 @@
 import { uid } from "../db.mjs";
-import { mapExpense, expenseToFront, getRates, makeConverter, sendError } from "../helpers.mjs";
+import {
+  mapExpense,
+  expenseToFront,
+  sendError,
+  EXPENSE_CATEGORIES,
+  normalizeExpenseInput,
+  computeExpenseMoneyTotals,
+  logisticsFromExpenses,
+  LOGISTICS_KINDS,
+} from "../helpers.mjs";
+import { loadItinerary } from "../itinerary/store.mjs";
+
+const INSERT_SQL = `INSERT INTO expenses (
+  id, description, amount, currency, category, spent_at, done, kind, meta_json, datetime_start, datetime_end
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+function insertExpense(db, id, n) {
+  db.prepare(INSERT_SQL).run(
+    id,
+    n.description,
+    n.amount,
+    n.currency,
+    n.category,
+    n.spent_at,
+    n.done,
+    n.kind,
+    n.meta_json,
+    n.datetime_start,
+    n.datetime_end,
+  );
+}
+
+function validateNormalized(n) {
+  if (!n.description) return "Descripción requerida";
+  if (!EXPENSE_CATEGORIES.includes(n.category)) return "Categoría inválida";
+  if (n.amount != null) {
+    if (!(n.amount > 0)) return "Monto inválido";
+    if (!["ARS", "USD", "JPY"].includes(n.currency)) return "Moneda inválida";
+  }
+  return null;
+}
+
+function nextItineraryDays(db) {
+  try {
+    const it = loadItinerary(db);
+    const days = it.days || [];
+    const anchor = it.meta?.anchor_date;
+    let startIdx = 0;
+    if (anchor) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const a = new Date(`${anchor}T00:00:00`);
+      const diff = Math.floor((today - a) / 86400000);
+      if (diff >= 0 && diff < days.length) startIdx = diff;
+    }
+    return {
+      days: days.length,
+      stops: days.reduce((n, d) => n + (d.stops?.length || 0), 0),
+      title: it.meta?.title || "",
+      anchor_date: anchor || null,
+      nextDays: days.slice(startIdx, startIdx + 3).map((d) => ({
+        day_number: d.day_number,
+        title: d.title,
+        stay_label: d.stay_label,
+        base: d.base,
+        stops: d.stops?.length || 0,
+      })),
+      corridor: buildCorridor(days),
+      dayChips: days.map((d) => ({
+        day_number: d.day_number,
+        title: d.title,
+        base: d.base || d.stay_label || "",
+      })),
+    };
+  } catch {
+    return { days: 0, stops: 0, title: "", anchor_date: null, nextDays: [], corridor: [], dayChips: [] };
+  }
+}
+
+function cityKey(day) {
+  const raw = (day.base || day.stay_label || day.title || "").trim();
+  if (!raw) return null;
+  const first = raw.split(/[—(–,\-/]/)[0].trim();
+  const cleaned = first
+    .replace(/\(.*?\)/g, "")
+    .replace(/check-?in|check-?out|noche|noches|estación|station/gi, "")
+    .trim();
+  if (!cleaned || /^d[ií]a\s*\d+/i.test(cleaned)) return null;
+  return cleaned;
+}
+
+function buildCorridor(days) {
+  const out = [];
+  for (const d of days) {
+    const city = cityKey(d);
+    if (!city) continue;
+    const last = out[out.length - 1];
+    if (last && last.city.toLowerCase() === city.toLowerCase()) {
+      last.dayNumbers.push(d.day_number);
+    } else {
+      out.push({ city, dayNumbers: [d.day_number] });
+    }
+  }
+  return out;
+}
 
 export async function expensesRoutes(app, { db }) {
   app.get("/api/v1/expenses", async (request) => {
-    const { category, from, to, format } = request.query || {};
+    const { category, from, to, format, kind, done } = request.query || {};
     let sql = "SELECT * FROM expenses WHERE 1=1";
     const params = [];
     if (category) {
       sql += " AND category = ?";
       params.push(category);
+    }
+    if (kind) {
+      sql += " AND kind = ?";
+      params.push(kind);
+    }
+    if (done === "0" || done === "1") {
+      sql += " AND done = ?";
+      params.push(Number(done));
     }
     if (from) {
       sql += " AND spent_at >= ?";
@@ -21,48 +133,33 @@ export async function expensesRoutes(app, { db }) {
     sql += " ORDER BY spent_at DESC";
     const rows = db.prepare(sql).all(...params);
     if (format === "front") return rows.map(expenseToFront);
+    if (format === "logistics") return logisticsFromExpenses(rows.filter((r) => LOGISTICS_KINDS.has(r.kind)));
     return rows.map(mapExpense);
   });
 
   app.get("/api/v1/expenses/totals", async () => {
-    const rates = getRates(db);
-    const convert = makeConverter(rates);
-    const rows = db.prepare("SELECT * FROM expenses").all();
-    const t = { USD: 0, ARS: 0, JPY: 0 };
-    const byCat = {};
-    for (const e of rows) {
-      const c = convert(e.amount, e.currency);
-      t.USD += c.USD;
-      t.ARS += c.ARS;
-      t.JPY += c.JPY;
-      byCat[e.category] = (byCat[e.category] || 0) + c.USD;
-    }
-    return { ...t, byCat, rates };
+    const money = computeExpenseMoneyTotals(db);
+    return money.totals;
   });
 
-  /** Sync completo (adapter storage Fase 1) — antes de :id */
+  app.get("/api/v1/expenses/dashboard", async () => {
+    const money = computeExpenseMoneyTotals(db);
+    const itinerary = nextItineraryDays(db);
+    return { ...money, itinerary };
+  });
+
+  /** Sync completo (adapter storage) — antes de :id */
   app.put("/api/v1/expenses/sync", async (request, reply) => {
     const list = Array.isArray(request.body) ? request.body : request.body?.expenses;
     if (!Array.isArray(list)) return sendError(reply, 400, "VALIDATION", "Se espera un array");
 
     const tx = db.transaction(() => {
       db.prepare("DELETE FROM expenses").run();
-      const ins = db.prepare(
-        `INSERT INTO expenses (id, description, amount, currency, category, spent_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-      );
       for (const e of list) {
-        const description = (e.description ?? e.desc ?? "").trim();
-        const amount = Number(e.amount);
-        if (!description || !(amount > 0)) continue;
-        ins.run(
-          e.id || uid(),
-          description,
-          amount,
-          e.currency || "JPY",
-          e.category || "otros",
-          e.spent_at || e.date || new Date().toISOString(),
-        );
+        const n = normalizeExpenseInput(e);
+        const err = validateNormalized(n);
+        if (err) continue;
+        insertExpense(db, e.id || uid(), n);
       }
     });
     tx();
@@ -71,27 +168,12 @@ export async function expensesRoutes(app, { db }) {
   });
 
   app.post("/api/v1/expenses", async (request, reply) => {
-    const body = request.body || {};
-    const description = body.description ?? body.desc;
-    const amount = Number(body.amount);
-    const currency = body.currency;
-    const category = body.category;
-    const spent_at = body.spent_at || body.date || new Date().toISOString();
+    const n = normalizeExpenseInput(request.body || {});
+    const err = validateNormalized(n);
+    if (err) return sendError(reply, 400, "VALIDATION", err);
 
-    if (!description?.trim() || !(amount > 0) || !["ARS", "USD", "JPY"].includes(currency)) {
-      return sendError(reply, 400, "VALIDATION", "Campos inválidos");
-    }
-    const cats = ["comida", "transporte", "alojamiento", "actividades", "compras", "otros"];
-    if (!cats.includes(category)) {
-      return sendError(reply, 400, "VALIDATION", "Categoría inválida");
-    }
-
-    const id = body.id || uid();
-    db.prepare(
-      `INSERT INTO expenses (id, description, amount, currency, category, spent_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-    ).run(id, description.trim(), amount, currency, category, spent_at);
-
+    const id = request.body?.id || uid();
+    insertExpense(db, id, n);
     const row = db.prepare("SELECT * FROM expenses WHERE id = ?").get(id);
     return reply.code(201).send(mapExpense(row));
   });
@@ -100,18 +182,26 @@ export async function expensesRoutes(app, { db }) {
     const existing = db.prepare("SELECT * FROM expenses WHERE id = ?").get(request.params.id);
     if (!existing) return sendError(reply, 404, "NOT_FOUND", "Gasto no encontrado");
 
-    const body = request.body || {};
-    const description = (body.description ?? body.desc ?? existing.description).trim();
-    const amount = body.amount != null ? Number(body.amount) : existing.amount;
-    const currency = body.currency ?? existing.currency;
-    const category = body.category ?? existing.category;
-    const spent_at = body.spent_at || body.date || existing.spent_at;
-
-    if (!(amount > 0)) return sendError(reply, 400, "VALIDATION", "Monto inválido");
+    const n = normalizeExpenseInput(request.body || {}, existing);
+    const err = validateNormalized(n);
+    if (err) return sendError(reply, 400, "VALIDATION", err);
 
     db.prepare(
-      `UPDATE expenses SET description=?, amount=?, currency=?, category=?, spent_at=? WHERE id=?`,
-    ).run(description, amount, currency, category, spent_at, request.params.id);
+      `UPDATE expenses SET description=?, amount=?, currency=?, category=?, spent_at=?,
+       done=?, kind=?, meta_json=?, datetime_start=?, datetime_end=? WHERE id=?`,
+    ).run(
+      n.description,
+      n.amount,
+      n.currency,
+      n.category,
+      n.spent_at,
+      n.done,
+      n.kind,
+      n.meta_json,
+      n.datetime_start,
+      n.datetime_end,
+      request.params.id,
+    );
 
     return mapExpense(db.prepare("SELECT * FROM expenses WHERE id = ?").get(request.params.id));
   });

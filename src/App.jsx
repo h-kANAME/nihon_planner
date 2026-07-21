@@ -5,6 +5,7 @@ import { C, S, applyTheme, resolveInitialMode, persistMode } from "./theme";
 import Login from "./Login.jsx";
 import Markdown from "./components/Markdown.jsx";
 import { useConfirmDialog } from "./components/ConfirmDialog.jsx";
+import PlanPreview from "./components/PlanPreview.jsx";
 
 /* ============================================================
    NIHON PLANNER — Viaje a Japón (20 días, pareja, ARS/USD/JPY)
@@ -50,20 +51,19 @@ const CATS = [
   { id: "alojamiento", label: "Alojamiento", kanji: "宿" },
   { id: "actividades", label: "Actividades", kanji: "遊" },
   { id: "compras", label: "Compras", kanji: "買" },
+  { id: "documentacion", label: "Docs", kanji: "証" },
+  { id: "vuelos", label: "Vuelos", kanji: "空" },
+  { id: "reservas", label: "Reservas", kanji: "予" },
   { id: "otros", label: "Otros", kanji: "他" },
 ];
 
-const DEFAULT_DOCS = [
-  { id: "d1", label: "Pasaporte vigente (+6 meses desde el regreso)", done: false },
-  { id: "d2", label: "Visa: argentinos NO necesitan para turismo (hasta 90 días) — verificar vigencia de la exención", done: false },
-  { id: "d3", label: "Visit Japan Web (registro de inmigración y aduana)", done: false },
-  { id: "d4", label: "Seguro médico de viaje", done: false },
-  { id: "d5", label: "Decidir: JR Pass vs pasajes sueltos (comparar con itinerario)", done: false },
-  { id: "d6", label: "Suica/Pasmo digital (Apple/Google Wallet) o física", done: false },
-  { id: "d7", label: "Efectivo en yenes (Japón sigue usando mucho cash)", done: false },
-  { id: "d8", label: "Entradas Ghibli Museum (salen el día 10 del mes anterior, se agotan)", done: false },
-  { id: "d9", label: "Reserva TeamLab (anticipada)", done: false },
-];
+function kindForCat(category, explicit) {
+  if (explicit && explicit !== "expense") return explicit;
+  if (category === "vuelos") return "flight";
+  if (category === "documentacion") return "doc";
+  if (category === "reservas") return "booking";
+  return "expense";
+}
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 const fmt = (n, cur) => {
@@ -109,9 +109,9 @@ export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
   const [tab, setTab] = useState("resumen");
   const [ready, setReady] = useState(false);
+  const [focusDayNumber, setFocusDayNumber] = useState(null);
 
   const [expenses, setExpenses] = useState([]);
-  const [logistics, setLogistics] = useState({ flights: [], stays: [], bookings: [], docs: DEFAULT_DOCS });
   const [rates, setRates] = useState({ usdArs: 1300, usdJpy: 155, source: "manual", updatedAt: null });
   const [sessions, setSessions] = useState([]);
 
@@ -136,21 +136,11 @@ export default function App() {
   }, []);
 
   const loadTrip = useCallback(async () => {
-    const [e, l, r] = await Promise.all([
+    const [e, r] = await Promise.all([
       load("jp:expenses", []),
-      load("jp:logistics", { flights: [], stays: [], bookings: [], docs: DEFAULT_DOCS }),
       load("jp:rates", { usdArs: 1300, usdJpy: 155, source: "manual", updatedAt: null }),
     ]);
-    setExpenses(e);
-    const logistics = l && typeof l === "object"
-      ? {
-          flights: l.flights || [],
-          stays: l.stays || [],
-          bookings: l.bookings || [],
-          docs: l.docs?.length ? l.docs : DEFAULT_DOCS,
-        }
-      : { flights: [], stays: [], bookings: [], docs: DEFAULT_DOCS };
-    setLogistics(logistics);
+    setExpenses(Array.isArray(e) ? e : []);
     setRates(r);
     try {
       const list = await api.listSessions();
@@ -167,7 +157,6 @@ export default function App() {
 
   /* persistencia (Fase 1 adapter) */
   useEffect(() => { if (ready && user) save("jp:expenses", expenses); }, [expenses, ready, user]);
-  useEffect(() => { if (ready && user) save("jp:logistics", logistics); }, [logistics, ready, user]);
   useEffect(() => { if (ready && user) save("jp:rates", rates); }, [rates, ready, user]);
 
   const [rateStatus, setRateStatus] = useState("idle");
@@ -188,12 +177,18 @@ export default function App() {
     const t = { USD: 0, ARS: 0, JPY: 0 };
     const byCat = {};
     expenses.forEach((e) => {
+      if (e.amount == null || !e.currency) return;
       const c = convert(Number(e.amount) || 0, e.currency);
       t.USD += c.USD; t.ARS += c.ARS; t.JPY += c.JPY;
       byCat[e.category] = (byCat[e.category] || 0) + c.USD;
     });
     return { ...t, byCat };
   }, [expenses, convert]);
+
+  const openPlanDay = (n) => {
+    setFocusDayNumber(n);
+    setTab("plan");
+  };
 
   const logout = async () => {
     try { await api.logout(); } catch { /* ignore */ }
@@ -262,13 +257,24 @@ export default function App() {
 
       <main style={S.main}>
         {tab === "resumen" && (
-          <Resumen totals={totals} expenses={expenses} logistics={logistics} setLogistics={setLogistics} rates={rates} />
+          <Resumen
+            totals={totals}
+            expenses={expenses}
+            rates={rates}
+            onOpenPlanDay={openPlanDay}
+            onOpenGastos={() => setTab("gastos")}
+          />
         )}
         {tab === "gastos" && <Gastos expenses={expenses} setExpenses={setExpenses} convert={convert} totals={totals} />}
         {tab === "conversor" && (
           <Conversor rates={rates} setRates={setRates} convert={convert} fetchRates={() => fetchRates()} rateStatus={rateStatus} />
         )}
-        {tab === "plan" && <Plan />}
+        {tab === "plan" && (
+          <Plan
+            focusDayNumber={focusDayNumber}
+            onFocusConsumed={() => setFocusDayNumber(null)}
+          />
+        )}
         {tab === "ai" && <Asistente sessions={sessions} setSessions={setSessions} />}
       </main>
 
@@ -300,13 +306,55 @@ export default function App() {
   );
 }
 
-const PLAN_PAGE = { docs: 8, flights: 8, stays: 6, bookings: 8 };
 const ITINERARY_PAGE = 8;
 
 /* ================= RESUMEN ================= */
-function Resumen({ totals, expenses, logistics, setLogistics, rates }) {
-  const docsDone = logistics.docs.filter((d) => d.done).length;
-  const pendingBookings = logistics.bookings.filter((b) => !b.done && b.status !== "confirmado");
+function Resumen({ totals, expenses, rates, onOpenPlanDay, onOpenGastos }) {
+  const [dash, setDash] = useState(null);
+  const [previewDay, setPreviewDay] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState(null);
+  const [previewAnchor, setPreviewAnchor] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const d = await api.expensesDashboard();
+        if (!cancelled) setDash(d);
+      } catch {
+        if (!cancelled) setDash(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [expenses]);
+
+  const openDayPreview = async (dayNumber) => {
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const data = await api.getItinerary();
+      setPreviewAnchor(data.meta?.anchor_date || null);
+      const day = (data.days || []).find((d) => d.day_number === dayNumber);
+      if (!day) {
+        setPreviewError(`No se encontró el día ${dayNumber}`);
+        setPreviewDay(null);
+      } else {
+        setPreviewDay(day);
+      }
+    } catch (e) {
+      setPreviewError(e.message || "No se pudo cargar el día");
+      setPreviewDay(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const logistics = dash?.logistics || { total: 0, done: 0, percent: 0 };
+  const itinerary = dash?.itinerary || { days: 0, stops: 0, nextDays: [], dayChips: [] };
+  const est = dash?.estimatedVsLoaded || { loadedUSD: 0, pendingLogisticsUSD: 0 };
+  const pendingItems = dash?.pendingItems || [];
+
   return (
     <div>
       <Card>
@@ -317,13 +365,13 @@ function Resumen({ totals, expenses, logistics, setLogistics, rates }) {
           <span style={{ fontSize: 15, color: C.soft }}>{fmt(totals.ARS, "ARS")}</span>
         </div>
         <div style={{ fontSize: 12, color: C.soft, marginTop: 6 }}>
-          {expenses.length} gasto{expenses.length !== 1 ? "s" : ""} · cotización {rates.source}
+          {expenses.filter((e) => e.amount != null).length} con monto · cotización {rates.source}
         </div>
       </Card>
 
       <Card>
-        <div style={S.label}>Por categoría (en USD)</div>
-        {Object.keys(totals.byCat).length === 0 && <Empty text="Todavía no hay gastos. Cargá el primero en 費 Gastos." />}
+        <div style={S.label}>Por categoría (USD)</div>
+        {Object.keys(totals.byCat).length === 0 && <Empty text="Todavía no hay montos. Cargá ítems en 費 Gastos." />}
         {CATS.filter((c) => totals.byCat[c.id]).map((c) => {
           const v = totals.byCat[c.id];
           const max = Math.max(...Object.values(totals.byCat));
@@ -342,165 +390,634 @@ function Resumen({ totals, expenses, logistics, setLogistics, rates }) {
       </Card>
 
       <Card>
-        <div style={S.label}>Estado de logística</div>
-        <Row k="Documentación" v={`${docsDone}/${logistics.docs.length} listos`} />
-        <Row k="Vuelos cargados" v={logistics.flights.length} />
-        <Row k="Alojamientos" v={logistics.stays.length} />
-        <Row k="Reservas pendientes" v={pendingBookings.length} accent={pendingBookings.length > 0} />
-        <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginTop: 8, lineHeight: 1.45 }}>
-          El itinerario día a día vive en la solapa Plan. Acá gestionás docs y logística.
-        </div>
+        <div style={S.label}>Logística · checklist</div>
+        <Row k="Completado" v={`${logistics.done}/${logistics.total} (${logistics.percent}%)`} />
+        <Row k="Cargado (USD)" v={fmt(est.loadedUSD, "USD")} />
+        <Row
+          k="Pendiente logística c/ monto"
+          v={fmt(est.pendingLogisticsUSD, "USD")}
+          accent={est.pendingLogisticsUSD > 0}
+        />
+        <button type="button" style={{ ...S.ghost, marginTop: 8, fontSize: 13 }} onClick={onOpenGastos}>
+          Gestionar en Gastos →
+        </button>
       </Card>
 
-      <LogisticsPanel logistics={logistics} setLogistics={setLogistics} />
+      <Card>
+        <div style={S.label}>Itinerario</div>
+        <Row k="Días" v={itinerary.days} />
+        <Row k="Paradas" v={itinerary.stops} />
+        {itinerary.nextDays?.length > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginBottom: 6 }}>Próximos días</div>
+            {itinerary.nextDays.map((d) => (
+              <button
+                key={d.day_number}
+                type="button"
+                onClick={() => openDayPreview(d.day_number)}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  background: "transparent",
+                  border: "none",
+                  padding: "6px 0",
+                  cursor: "pointer",
+                  borderBottom: `1px solid ${C.line}`,
+                }}
+              >
+                <span style={{ fontWeight: 700, color: C.hanko }}>D{d.day_number}</span>{" "}
+                <span style={{ color: C.ink }}>{d.title || "Sin título"}</span>
+                <span style={{ color: C.soft, fontSize: 12 }}> · {d.stops} paradas</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {pendingItems.length > 0 && (
+        <Card>
+          <div style={S.label}>Pendientes con monto</div>
+          {pendingItems.map((p) => (
+            <Row key={p.id} k={p.desc} v={fmt(p.amountUSD, "USD")} accent />
+          ))}
+        </Card>
+      )}
+
+      <Card>
+        <div style={S.label}>Preview del plan</div>
+        <PlanPreview
+          days={itinerary.dayChips?.length ? itinerary.dayChips : itinerary.nextDays || []}
+          onOpenDay={openDayPreview}
+        />
+      </Card>
+
+      {(previewDay || previewLoading || previewError) && (
+        <ItineraryDayDetailModal
+          day={previewDay}
+          loading={previewLoading}
+          error={previewError}
+          anchorDate={previewAnchor}
+          onClose={() => {
+            setPreviewDay(null);
+            setPreviewError(null);
+            setPreviewLoading(false);
+          }}
+          onEditInPlan={() => {
+            const n = previewDay?.day_number;
+            setPreviewDay(null);
+            setPreviewError(null);
+            if (n != null) onOpenPlanDay(n);
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function LogisticsPanel({ logistics, setLogistics }) {
-  const [section, setSection] = useState("docs");
-  const upd = (patch) => setLogistics({ ...logistics, ...patch });
+function ItineraryDayDetailModal({ day, loading, error, anchorDate, onClose, onEditInPlan }) {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  const cal = day ? calendarForDay(anchorDate, day.day_number) : null;
+  const stops = [...(day?.stops || [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
   return (
-    <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-        {[["docs", "Documentación"], ["flights", "Vuelos"], ["stays", "Alojamiento"], ["bookings", "Reservas"]].map(([id, l]) => (
-          <button key={id} type="button" onClick={() => setSection(id)} style={{ ...S.chip, ...(section === id ? S.chipOn : {}) }}>{l}</button>
-        ))}
+    <div
+      role="presentation"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        background: "rgba(0,0,0,0.45)",
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={day ? `Detalle día ${day.day_number}` : "Detalle del día"}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 520,
+          maxHeight: "88vh",
+          display: "flex",
+          flexDirection: "column",
+          background: C.surfaceContainer,
+          borderRadius: "16px 16px 0 0",
+          boxShadow: C.elevation2,
+          paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${C.outlineVariant}` }}>
+          <div style={{ fontWeight: 700, fontSize: 16 }}>
+            {loading
+              ? "Cargando…"
+              : day
+                ? `Día ${day.day_number}${cal ? ` · ${cal}` : ""}`
+                : "Detalle"}
+          </div>
+          <button type="button" style={S.ghost} onClick={onClose}>✕</button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", WebkitOverflowScrolling: "touch" }}>
+          {loading && <Empty text="Cargando el día…" />}
+          {error && !loading && <Empty text={error} />}
+          {day && !loading && (
+            <>
+              <div style={{ fontSize: 18, fontWeight: 700, color: C.ink, marginBottom: 8 }}>
+                {day.title || `Día ${day.day_number}`}
+              </div>
+              <Row k="Base" v={day.base || "—"} />
+              <Row k="Alojamiento" v={day.stay_label || "—"} />
+              <Row k="Hub" v={day.hub || "—"} />
+              {day.notes ? (
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ ...S.label, marginBottom: 6 }}>Notas</div>
+                  <div style={{ fontSize: 13, color: C.onSurface, whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
+                    {day.notes}
+                  </div>
+                </div>
+              ) : null}
+
+              <div style={{ ...S.label, marginTop: 16, marginBottom: 8 }}>
+                Paradas ({stops.length})
+              </div>
+              {stops.length === 0 ? (
+                <Empty text="Este día no tiene paradas cargadas." />
+              ) : (
+                stops.map((s, i) => (
+                  <div
+                    key={s.id || i}
+                    style={{
+                      padding: "10px 0",
+                      borderBottom: `1px solid ${C.line}`,
+                      opacity: s.done ? 0.65 : 1,
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: C.hanko, minWidth: 28 }}>
+                        {s.kind === "hub_out" ? "OUT" : s.kind === "hub_back" ? "IN" : `#${i + 1}`}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14, textDecoration: s.done ? "line-through" : "none" }}>
+                          {s.name || "(sin nombre)"}
+                        </div>
+                        {s.detail && (
+                          <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginTop: 2 }}>{s.detail}</div>
+                        )}
+                        {s.how_to_get && (
+                          <div style={{ fontSize: 12, color: C.soft, marginTop: 2 }}>Cómo llegar: {s.how_to_get}</div>
+                        )}
+                        {s.est_duration && (
+                          <div style={{ fontSize: 12, color: C.indigo, marginTop: 2 }}>{s.est_duration}</div>
+                        )}
+                        {s.notes && (
+                          <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginTop: 2 }}>{s.notes}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, padding: "12px 16px", borderTop: `1px solid ${C.outlineVariant}` }}>
+          <button type="button" style={{ ...S.ghost, flex: 1 }} onClick={onClose}>
+            Cerrar
+          </button>
+          {day && (
+            <button type="button" style={{ ...S.primary, flex: 1 }} onClick={onEditInPlan}>
+              Editar en Plan
+            </button>
+          )}
+        </div>
       </div>
-
-      {section === "docs" && (
-        <PlanList
-          title="Checklist de documentación"
-          items={logistics.docs}
-          fields={[["label", "Ítem de documentación", "text"]]}
-          primaryKey="label"
-          pageSize={PLAN_PAGE.docs}
-          defaultFilter="pending"
-          dateKey={null}
-          searchKeys={["label"]}
-          onChange={(items) => upd({ docs: items })}
-        />
-      )}
-
-      {section === "flights" && (
-        <PlanList
-          title="Vuelos y traslados internos"
-          items={logistics.flights}
-          fields={[
-            ["route", "Ruta (EZE → NRT)", "text"],
-            ["datetime", "Fecha y hora de salida", "datetime"],
-            ["code", "Aerolínea / código", "text"],
-          ]}
-          primaryKey="route"
-          pageSize={PLAN_PAGE.flights}
-          dateKey="datetime"
-          searchKeys={["route", "code"]}
-          onChange={(items) => upd({ flights: items })}
-        />
-      )}
-
-      {section === "stays" && (
-        <PlanList
-          title="Alojamiento por ciudad"
-          items={logistics.stays}
-          fields={[
-            ["city", "Ciudad (Tokyo, Kyoto…)", "text"],
-            ["name", "Hotel / Airbnb", "text"],
-            ["checkin", "Check-in", "datetime"],
-            ["checkout", "Check-out", "datetime"],
-          ]}
-          primaryKey="name"
-          pageSize={PLAN_PAGE.stays}
-          dateKey="checkin"
-          searchKeys={["city", "name"]}
-          onChange={(items) => upd({ stays: items })}
-          validate={(form) => {
-            if (form.checkin && form.checkout && form.checkout < form.checkin) {
-              return "El check-out no puede ser anterior al check-in";
-            }
-            return null;
-          }}
-        />
-      )}
-
-      {section === "bookings" && (
-        <PlanList
-          title="Actividades y reservas"
-          items={logistics.bookings}
-          fields={[
-            ["name", "Actividad (Ghibli, TeamLab, Daikoku tour…)", "text"],
-            ["datetime", "Fecha y hora", "datetime"],
-          ]}
-          primaryKey="name"
-          pageSize={PLAN_PAGE.bookings}
-          dateKey="datetime"
-          searchKeys={["name"]}
-          onChange={(items) => upd({ bookings: items })}
-        />
-      )}
     </div>
   );
 }
 
 /* ================= GASTOS ================= */
-function Gastos({ expenses, setExpenses, convert, totals }) {
-  const [form, setForm] = useState({ desc: "", amount: "", currency: "JPY", category: "comida" });
-  const add = () => {
-    if (!form.desc.trim() || !Number(form.amount)) return;
-    setExpenses([{ id: uid(), ...form, amount: Number(form.amount), date: new Date().toISOString().slice(0, 10) }, ...expenses]);
-    setForm({ ...form, desc: "", amount: "" });
+function emptyExpenseForm() {
+  return {
+    desc: "",
+    amount: "",
+    currency: "JPY",
+    category: "comida",
+    kind: "expense",
+    done: false,
+    datetime_start: "",
+    datetime_end: "",
+    meta: {},
   };
+}
+
+function buildExpenseItem(form, editingId) {
+  const amount = form.amount === "" || form.amount == null ? null : Number(form.amount);
+  if (!form.desc.trim()) return null;
+  if (amount != null && !(amount > 0)) return null;
+  const resolvedKind =
+    form.category === "alojamiento" && (form.kind === "stay" || form.meta?.city || form.datetime_start)
+      ? "stay"
+      : kindForCat(form.category, form.kind);
+  return {
+    id: editingId || uid(),
+    desc: form.desc.trim(),
+    amount,
+    currency: amount != null ? form.currency || "JPY" : null,
+    category: form.category,
+    date: (form.datetime_start || new Date().toISOString()).slice(0, 10),
+    done: !!form.done,
+    kind: resolvedKind,
+    meta: form.meta || {},
+    datetime_start: form.datetime_start || null,
+    datetime_end: form.datetime_end || null,
+  };
+}
+
+function Gastos({ expenses, setExpenses, convert }) {
+  const [form, setForm] = useState(emptyExpenseForm);
+  const [editingId, setEditingId] = useState(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [filterCat, setFilterCat] = useState("all");
+  const [filterDone, setFilterDone] = useState("all");
+
+  const closeSheet = () => {
+    setSheetOpen(false);
+    setEditingId(null);
+    setForm(emptyExpenseForm());
+  };
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(emptyExpenseForm());
+    setSheetOpen(true);
+  };
+
+  const openEdit = (e) => {
+    setEditingId(e.id);
+    setForm({
+      desc: e.desc || "",
+      amount: e.amount == null ? "" : String(e.amount),
+      currency: e.currency || "JPY",
+      category: e.category || "otros",
+      kind: e.kind || "expense",
+      done: !!e.done,
+      datetime_start: e.datetime_start || "",
+      datetime_end: e.datetime_end || "",
+      meta: e.meta || {},
+    });
+    setSheetOpen(true);
+  };
+
+  const saveItem = () => {
+    const item = buildExpenseItem(form, editingId);
+    if (!item) return;
+    if (editingId) {
+      setExpenses(expenses.map((e) => (e.id === editingId ? item : e)));
+    } else {
+      setExpenses([item, ...expenses]);
+    }
+    closeSheet();
+  };
+
+  const filtered = expenses.filter((e) => {
+    if (filterCat !== "all" && e.category !== filterCat) return false;
+    if (filterDone === "pending" && e.done) return false;
+    if (filterDone === "done" && !e.done) return false;
+    return true;
+  });
+
   return (
     <div>
-      <Card>
-        <div style={S.label}>Nuevo gasto</div>
-        <input style={S.input} placeholder="Descripción (ej: Ramen en Ichiran)" value={form.desc}
-          onChange={(e) => setForm({ ...form, desc: e.target.value })} />
-        <div style={{ display: "flex", gap: 8 }}>
-          <input style={{ ...S.input, flex: 1 }} type="number" inputMode="decimal" placeholder="Monto" value={form.amount}
-            onChange={(e) => setForm({ ...form, amount: e.target.value })} />
-          <select style={{ ...S.input, width: 90 }} value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
-            <option>JPY</option><option>USD</option><option>ARS</option>
-          </select>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 8 }}>
+        <div style={{ fontSize: 13, color: C.onSurfaceVariant }}>
+          {filtered.length} de {expenses.length} ítem{expenses.length !== 1 ? "s" : ""}
         </div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "4px 0 10px" }}>
-          {CATS.map((c) => (
-            <button key={c.id} onClick={() => setForm({ ...form, category: c.id })}
-              style={{ ...S.chip, ...(form.category === c.id ? S.chipOn : {}) }}>
-              {c.kanji} {c.label}
-            </button>
-          ))}
-        </div>
-        <button style={S.primary} onClick={add}>Agregar gasto</button>
-      </Card>
+        <button type="button" style={S.primary} onClick={openCreate}>
+          + Agregar
+        </button>
+      </div>
 
-      {expenses.length === 0 ? (
-        <Card><Empty text="Sin gastos aún. El primero suele ser el vuelo ✈️" /></Card>
+      <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginBottom: 6 }}>Filtrar por categoría</div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+        <button
+          type="button"
+          style={{ ...S.chip, ...(filterCat === "all" ? S.chipOn : {}) }}
+          onClick={() => setFilterCat("all")}
+        >
+          Todas
+        </button>
+        {CATS.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            style={{ ...S.chip, ...(filterCat === c.id ? S.chipOn : {}) }}
+            onClick={() => setFilterCat(c.id)}
+          >
+            {c.kanji} {c.label}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+        {[
+          ["all", "Todos"],
+          ["pending", "Pendientes"],
+          ["done", "Hechos"],
+        ].map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            style={{ ...S.chip, ...(filterDone === id ? S.chipOn : {}) }}
+            onClick={() => setFilterDone(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <Card>
+          <Empty text={expenses.length === 0 ? "Sin ítems. Tocá Agregar para cargar el primero." : "Sin ítems en este filtro."} />
+        </Card>
       ) : (
-        expenses.map((e) => {
-          const c = convert(e.amount, e.currency);
+        filtered.map((e) => {
           const cat = CATS.find((x) => x.id === e.category);
+          const hasAmount = e.amount != null && e.currency;
+          const c = hasAmount ? convert(e.amount, e.currency) : null;
           return (
             <Card key={e.id}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 15 }}>
-                    <span style={{ color: C.hanko, marginRight: 6 }}>{cat?.kanji}</span>{e.desc}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpenses(expenses.map((x) => (x.id === e.id ? { ...x, done: !x.done } : x)))
+                  }
+                  style={{
+                    ...S.ghost,
+                    width: 28,
+                    height: 28,
+                    borderRadius: 8,
+                    border: `1px solid ${e.done ? C.indigo : C.line}`,
+                    color: e.done ? C.indigo : C.soft,
+                    flexShrink: 0,
+                  }}
+                  title={e.done ? "Hecho" : "Pendiente"}
+                >
+                  {e.done ? "✓" : "○"}
+                </button>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 15, textDecoration: e.done ? "line-through" : "none", opacity: e.done ? 0.7 : 1 }}>
+                    <span style={{ color: C.hanko, marginRight: 6 }}>{cat?.kanji}</span>
+                    {e.desc}
                   </div>
-                  <div style={{ fontSize: 12, color: C.soft, marginTop: 2 }}>{e.date} · cargado en {e.currency}</div>
-                  <div style={{ fontSize: 13, color: C.indigo, marginTop: 6 }}>
-                    {fmt(c.JPY, "JPY")} · {fmt(c.USD, "USD")} · {fmt(c.ARS, "ARS")}
+                  <div style={{ fontSize: 12, color: C.soft, marginTop: 2 }}>
+                    {cat ? `${cat.kanji} ${cat.label}` : e.category}
+                    {e.date ? ` · ${e.date}` : ""}
                   </div>
+                  {c && (
+                    <div style={{ fontSize: 13, color: C.indigo, marginTop: 6 }}>
+                      {fmt(c.JPY, "JPY")} · {fmt(c.USD, "USD")} · {fmt(c.ARS, "ARS")}
+                    </div>
+                  )}
                 </div>
-                <button style={S.ghost} onClick={() => setExpenses(expenses.filter((x) => x.id !== e.id))}>✕</button>
+                <div style={{ display: "flex", gap: 4 }}>
+                  <button type="button" style={S.ghost} onClick={() => openEdit(e)} aria-label="Editar">✎</button>
+                  <button
+                    type="button"
+                    style={S.ghost}
+                    onClick={() => setExpenses(expenses.filter((x) => x.id !== e.id))}
+                    aria-label="Eliminar"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             </Card>
           );
         })
       )}
+
+      {sheetOpen && (
+        <ExpenseFormSheet
+          form={form}
+          setForm={setForm}
+          editingId={editingId}
+          onSave={saveItem}
+          onClose={closeSheet}
+        />
+      )}
     </div>
   );
+}
+
+function ExpenseFormSheet({ form, setForm, editingId, onSave, onClose }) {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  const canSave = form.desc.trim() && (form.amount === "" || form.amount == null || Number(form.amount) > 0);
+
+  return (
+    <div
+      role="presentation"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        background: "rgba(0,0,0,0.45)",
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={editingId ? "Editar ítem" : "Nuevo ítem"}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 520,
+          maxHeight: "90vh",
+          display: "flex",
+          flexDirection: "column",
+          background: C.surfaceContainer,
+          borderRadius: "16px 16px 0 0",
+          boxShadow: C.elevation2,
+          paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${C.outlineVariant}` }}>
+          <div style={{ fontWeight: 700, fontSize: 16 }}>{editingId ? "Editar ítem" : "Agregar ítem"}</div>
+          <button type="button" style={S.ghost} onClick={onClose}>✕</button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", WebkitOverflowScrolling: "touch" }}>
+          <div style={S.label}>Categoría</div>
+          <select
+            style={{ ...S.input, marginBottom: 10 }}
+            value={form.category}
+            onChange={(e) => {
+              const category = e.target.value;
+              setForm({
+                ...form,
+                category,
+                kind: category === "alojamiento" ? form.kind : kindForCat(category),
+              });
+            }}
+          >
+            {CATS.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.kanji} {c.label}
+              </option>
+            ))}
+          </select>
+
+          <div style={S.label}>Descripción</div>
+          <input
+            style={S.input}
+            placeholder="Ej: Ramen Ichiran / Pasaporte / EZE → NRT"
+            value={form.desc}
+            onChange={(e) => setForm({ ...form, desc: e.target.value })}
+            autoFocus
+          />
+
+          <div style={S.label}>Monto (opcional)</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              style={{ ...S.input, flex: 1 }}
+              type="number"
+              inputMode="decimal"
+              placeholder="Sin monto si es solo checklist"
+              value={form.amount}
+              onChange={(e) => setForm({ ...form, amount: e.target.value })}
+            />
+            <select
+              style={{ ...S.input, width: 90 }}
+              value={form.currency}
+              onChange={(e) => setForm({ ...form, currency: e.target.value })}
+            >
+              <option>JPY</option>
+              <option>USD</option>
+              <option>ARS</option>
+            </select>
+          </div>
+
+          {(form.category === "vuelos" || form.kind === "flight") && (
+            <>
+              <div style={S.label}>Código de vuelo</div>
+              <input
+                style={S.input}
+                placeholder="Aerolínea / código (opcional)"
+                value={form.meta?.code || ""}
+                onChange={(e) => setForm({ ...form, meta: { ...form.meta, code: e.target.value } })}
+              />
+              <div style={S.label}>Fecha y hora</div>
+              <input
+                style={S.input}
+                type="datetime-local"
+                value={toLocalInput(form.datetime_start)}
+                onChange={(e) => setForm({ ...form, datetime_start: fromLocalInput(e.target.value) })}
+              />
+            </>
+          )}
+
+          {form.category === "reservas" && (
+            <>
+              <div style={S.label}>Fecha y hora</div>
+              <input
+                style={S.input}
+                type="datetime-local"
+                value={toLocalInput(form.datetime_start)}
+                onChange={(e) => setForm({ ...form, datetime_start: fromLocalInput(e.target.value) })}
+              />
+            </>
+          )}
+
+          {(form.category === "alojamiento" || form.kind === "stay") && (
+            <>
+              <div style={S.label}>Ciudad (si es estadía del viaje)</div>
+              <input
+                style={S.input}
+                placeholder="Tokyo, Kyoto…"
+                value={form.meta?.city || ""}
+                onChange={(e) => setForm({ ...form, meta: { ...form.meta, city: e.target.value }, kind: "stay" })}
+              />
+              <div style={S.label}>Check-in / Check-out</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  style={{ ...S.input, flex: 1 }}
+                  type="datetime-local"
+                  value={toLocalInput(form.datetime_start)}
+                  onChange={(e) => setForm({ ...form, datetime_start: fromLocalInput(e.target.value), kind: "stay" })}
+                />
+                <input
+                  style={{ ...S.input, flex: 1 }}
+                  type="datetime-local"
+                  value={toLocalInput(form.datetime_end)}
+                  onChange={(e) => setForm({ ...form, datetime_end: fromLocalInput(e.target.value), kind: "stay" })}
+                />
+              </div>
+            </>
+          )}
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginTop: 4, color: C.ink }}>
+            <input
+              type="checkbox"
+              checked={!!form.done}
+              onChange={(e) => setForm({ ...form, done: e.target.checked })}
+            />
+            Marcado como hecho
+          </label>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, padding: "12px 16px", borderTop: `1px solid ${C.outlineVariant}` }}>
+          <button type="button" style={{ ...S.ghost, flex: 1 }} onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="button" style={{ ...S.primary, flex: 1, opacity: canSave ? 1 : 0.5 }} onClick={onSave} disabled={!canSave}>
+            {editingId ? "Guardar" : "Agregar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function toLocalInput(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fromLocalInput(v) {
+  if (!v) return "";
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? v : d.toISOString();
 }
 
 /* ================= CONVERSOR ================= */
@@ -579,7 +1096,7 @@ function calendarForDay(anchorDate, dayNumber) {
   return dt.toLocaleDateString("es-AR", { day: "numeric", month: "numeric", timeZone: "UTC" });
 }
 
-function Plan() {
+function Plan({ focusDayNumber = null, onFocusConsumed }) {
   const [meta, setMeta] = useState({ title: "", anchor_date: null });
   const [days, setDays] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -612,6 +1129,29 @@ function Plan() {
   useEffect(() => {
     setVisible(ITINERARY_PAGE);
   }, [query, days.length]);
+
+  useEffect(() => {
+    if (focusDayNumber == null || !days.length) return;
+    const d = days.find((x) => x.day_number === focusDayNumber);
+    if (d) {
+      setQuery("");
+      setVisible(Math.max(ITINERARY_PAGE, days.length));
+      setDaySheet({
+        mode: "edit",
+        id: d.id,
+        values: {
+          day_number: String(d.day_number),
+          title: d.title || "",
+          base: d.base || "",
+          stay_label: d.stay_label || "",
+          hub: d.hub || "",
+          notes: d.notes || "",
+        },
+        stops: d.stops || [],
+      });
+    }
+    onFocusConsumed?.();
+  }, [focusDayNumber, days, onFocusConsumed]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -1372,338 +1912,6 @@ function ItineraryStopSheet({ sheet, busy, onChange, onSave, onClose }) {
         </div>
       </div>
     </div>
-  );
-}
-
-function PlanEditSheet({ open, title, fields, values, error, onChange, onSave, onClose }) {
-  useEffect(() => {
-    if (!open) return undefined;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKey = (e) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  return (
-    <div
-      role="presentation"
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 50,
-        background: "rgba(0,0,0,0.45)",
-        display: "flex",
-        alignItems: "flex-end",
-        justifyContent: "center",
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: "100%",
-          maxWidth: 520,
-          maxHeight: "85vh",
-          display: "flex",
-          flexDirection: "column",
-          background: C.surfaceContainer,
-          borderRadius: "16px 16px 0 0",
-          boxShadow: C.elevation2,
-          paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
-        }}
-      >
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "14px 16px",
-          borderBottom: `1px solid ${C.outlineVariant}`,
-        }}>
-          <div style={{ fontWeight: 700, fontSize: 16 }}>{title}</div>
-          <button type="button" style={S.ghost} onClick={onClose} aria-label="Cerrar">✕</button>
-        </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", WebkitOverflowScrolling: "touch" }}>
-          {fields.map(([k, ph, type], idx) => (
-            <div key={k}>
-              <div style={{ fontSize: 11, color: C.onSurfaceVariant, margin: "2px 0 4px" }}>{ph}</div>
-              <input
-                autoFocus={idx === 0}
-                style={{ ...S.input, marginBottom: 12 }}
-                type={type === "datetime" ? "datetime-local" : "text"}
-                placeholder={ph}
-                value={values[k] || ""}
-                onChange={(e) => onChange({ ...values, [k]: e.target.value })}
-              />
-            </div>
-          ))}
-          {error && <div style={S.warn}>{error}</div>}
-        </div>
-        <div style={{
-          display: "flex",
-          gap: 8,
-          padding: "10px 16px 4px",
-          borderTop: `1px solid ${C.outlineVariant}`,
-          background: C.surfaceContainer,
-        }}>
-          <button type="button" style={{ ...S.secondary, flex: 1, marginTop: 0 }} onClick={onClose}>Cancelar</button>
-          <button type="button" style={{ ...S.primary, flex: 1.4, marginTop: 0 }} onClick={onSave}>Guardar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PlanList({
-  title,
-  items,
-  fields,
-  primaryKey,
-  pageSize,
-  dateKey,
-  searchKeys,
-  onChange,
-  defaultFilter = "all",
-  validate,
-}) {
-  const empty = Object.fromEntries(fields.map(([k]) => [k, ""]));
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState(defaultFilter);
-  const [sort, setSort] = useState(dateKey ? "dateAsc" : "az");
-  const [visible, setVisible] = useState(pageSize);
-  const [sheet, setSheet] = useState(null); // null | { mode: 'create'|'edit', id?, values }
-  const [sheetError, setSheetError] = useState(null);
-  const [askConfirm, confirmNode] = useConfirmDialog();
-
-  useEffect(() => {
-    setVisible(pageSize);
-  }, [query, filter, sort, pageSize, items.length]);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let list = items.filter((it) => {
-      if (filter === "pending" && it.done) return false;
-      if (filter === "done" && !it.done) return false;
-      if (!q) return true;
-      return searchKeys.some((k) => String(it[k] || "").toLowerCase().includes(q));
-    });
-
-    list = [...list].sort((a, b) => {
-      if (sort === "az") {
-        return String(a[primaryKey] || "").localeCompare(String(b[primaryKey] || ""), "es");
-      }
-      if (!dateKey) return 0;
-      const da = a[dateKey] || "";
-      const db = b[dateKey] || "";
-      if (!da && !db) return 0;
-      if (!da) return 1;
-      if (!db) return -1;
-      return sort === "dateAsc" ? da.localeCompare(db) : db.localeCompare(da);
-    });
-    return list;
-  }, [items, query, filter, sort, dateKey, primaryKey, searchKeys]);
-
-  const shown = filtered.slice(0, visible);
-  const hasMore = visible < filtered.length;
-
-  const openCreate = () => {
-    setSheetError(null);
-    setSheet({ mode: "create", values: { ...empty } });
-  };
-  const openEdit = (it) => {
-    setSheetError(null);
-    setSheet({
-      mode: "edit",
-      id: it.id,
-      values: Object.fromEntries(fields.map(([k]) => [k, it[k] || ""])),
-    });
-  };
-  const closeSheet = () => {
-    setSheet(null);
-    setSheetError(null);
-  };
-
-  const saveSheet = () => {
-    if (!sheet) return;
-    const form = sheet.values;
-    if (!fields.some(([k]) => (form[k] || "").trim())) {
-      setSheetError("Completá al menos un campo");
-      return;
-    }
-    if (validate) {
-      const err = validate(form);
-      if (err) { setSheetError(err); return; }
-    }
-    if (sheet.mode === "edit") {
-      onChange(items.map((x) => (x.id === sheet.id ? { ...x, ...form } : x)));
-    } else {
-      onChange([...items, { id: uid(), ...form, done: false }]);
-    }
-    closeSheet();
-  };
-
-  const removeItem = async (id) => {
-    const ok = await askConfirm({
-      title: "Eliminar ítem",
-      message: "¿Eliminar este ítem? Esta acción no se puede deshacer.",
-      confirmLabel: "Eliminar",
-      danger: true,
-    });
-    if (!ok) return;
-    onChange(items.filter((x) => x.id !== id));
-  };
-
-  return (
-    <Card>
-      {confirmNode}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <div style={{ ...S.label, marginBottom: 0 }}>{title}</div>
-        <button type="button" style={{ ...S.secondary, minHeight: 40, padding: "6px 12px" }} onClick={openCreate}>+ Nuevo</button>
-      </div>
-
-      <div style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 2,
-        background: C.surfaceContainer,
-        paddingBottom: 8,
-        marginBottom: 4,
-        borderBottom: `1px solid ${C.outlineVariant}`,
-      }}>
-        <input
-          style={{ ...S.input, marginBottom: 8 }}
-          type="search"
-          inputMode="search"
-          placeholder="Buscar…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          aria-label="Buscar en el plan"
-        />
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-          {[
-            ["all", "Todos"],
-            ["pending", "Pendientes"],
-            ["done", "Hechos"],
-          ].map(([id, l]) => (
-            <button key={id} type="button" onClick={() => setFilter(id)} style={{ ...S.chip, minHeight: 36, padding: "6px 10px", ...(filter === id ? S.chipOn : {}) }}>{l}</button>
-          ))}
-        </div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {(dateKey
-            ? [["dateAsc", "Fecha ↑"], ["dateDesc", "Fecha ↓"], ["az", "A–Z"]]
-            : [["az", "A–Z"]]
-          ).map(([id, l]) => (
-            <button key={id} type="button" onClick={() => setSort(id)} style={{ ...S.chip, minHeight: 32, padding: "4px 10px", fontSize: 11, ...(sort === id ? S.chipOn : {}) }}>{l}</button>
-          ))}
-        </div>
-        <div style={{ fontSize: 11, color: C.onSurfaceVariant, marginTop: 8 }}>
-          Mostrando {shown.length} de {filtered.length}
-          {filtered.length !== items.length ? ` · filtrados de ${items.length}` : ""}
-        </div>
-      </div>
-
-      <div style={{
-        maxHeight: "min(55vh, 420px)",
-        overflowY: "auto",
-        WebkitOverflowScrolling: "touch",
-        marginTop: 4,
-      }}>
-        {items.length === 0 && <Empty text="Nada cargado todavía. Tocá + Nuevo." />}
-        {items.length > 0 && filtered.length === 0 && <Empty text="Sin resultados para este filtro o búsqueda." />}
-
-        {shown.map((it) => {
-          const metaParts = fields
-            .filter(([k]) => k !== primaryKey)
-            .map(([k, ph, type]) => (it[k] ? (type === "datetime" ? `${ph}: ${fmtDT(it[k])}` : it[k]) : null))
-            .filter(Boolean);
-          const editing = sheet?.mode === "edit" && sheet.id === it.id;
-          return (
-            <div
-              key={it.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                padding: "12px 8px",
-                borderBottom: `1px solid ${C.outlineVariant}`,
-                borderRadius: 8,
-                background: editing ? C.primaryContainer : "transparent",
-              }}
-            >
-              <div style={{ fontSize: 14, flex: 1, minWidth: 0, paddingRight: 8 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                  {primaryKey === "label" && (
-                    <input
-                      type="checkbox"
-                      checked={!!it.done}
-                      style={{ accentColor: C.primary, marginTop: 3, cursor: "pointer", width: 18, height: 18, flexShrink: 0 }}
-                      onChange={() => onChange(items.map((x) => (x.id === it.id ? { ...x, done: !x.done } : x)))}
-                      aria-label="Marcar realizado"
-                    />
-                  )}
-                  <div style={{ minWidth: 0 }}>
-                    <b style={{
-                      textDecoration: it.done ? "line-through" : "none",
-                      color: it.done ? C.onSurfaceVariant : C.onSurface,
-                      wordBreak: "break-word",
-                    }}>
-                      {it[primaryKey] || "(sin título)"}
-                    </b>
-                    {it.done && primaryKey !== "label" && (
-                      <span style={{ marginLeft: 6, fontSize: 11, color: C.secondary, fontWeight: 700 }}>✓ realizado</span>
-                    )}
-                    {metaParts.length > 0 && <Meta>{metaParts.join(" · ")}</Meta>}
-                  </div>
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 0, flexShrink: 0 }}>
-                {primaryKey !== "label" && (
-                  <button
-                    type="button"
-                    style={{ ...S.ghost, color: it.done ? C.secondary : C.onSurfaceVariant, minWidth: 40, minHeight: 40 }}
-                    title={it.done ? "Marcar pendiente" : "Marcar realizado"}
-                    onClick={() => onChange(items.map((x) => (x.id === it.id ? { ...x, done: !x.done } : x)))}
-                  >
-                    {it.done ? "✓" : "○"}
-                  </button>
-                )}
-                <button type="button" style={{ ...S.ghost, minWidth: 40, minHeight: 40 }} title="Editar" onClick={() => openEdit(it)}>✎</button>
-                <button type="button" style={{ ...S.ghost, minWidth: 40, minHeight: 40 }} title="Eliminar" onClick={() => removeItem(it.id)}>✕</button>
-              </div>
-            </div>
-          );
-        })}
-
-        {hasMore && (
-          <button
-            type="button"
-            style={{ ...S.secondary, width: "100%", marginTop: 10, marginBottom: 4 }}
-            onClick={() => setVisible((n) => n + pageSize)}
-          >
-            Cargar más ({filtered.length - visible} restantes)
-          </button>
-        )}
-      </div>
-
-      <PlanEditSheet
-        open={!!sheet}
-        title={sheet?.mode === "edit" ? "Editar ítem" : "Nuevo ítem"}
-        fields={fields}
-        values={sheet?.values || empty}
-        error={sheetError}
-        onChange={(values) => setSheet((s) => (s ? { ...s, values } : s))}
-        onSave={saveSheet}
-        onClose={closeSheet}
-      />
-    </Card>
   );
 }
 

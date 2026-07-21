@@ -1,6 +1,6 @@
 # Nihon Planner 旅
 
-Planificador de viaje a Japón: gastos multi-moneda (ARS/USD/JPY), logística, cotizaciones y asistente AI con persistencia server-side.
+Planificador de viaje a Japón: itinerario día a día, gastos híbridos (monto opcional + checklist de docs/vuelos/reservas/alojamiento), dashboard Resumen, cotizaciones y asistente AI.
 
 **Stack:** React (Vite) + Fastify + SQLite · Auth Google (ID token) · AI multi-proveedor (DeepSeek / Claude) · 100% Docker.
 
@@ -77,7 +77,7 @@ Documentados en `src/theme.js` (dark `#2d2e32` / `#25262a`, acento `#15eb80`, ti
 
 ## Itinerario (Plan)
 
-El tab **Plan** es un itinerario día a día. Podés **importar un `.md`** (pipeline AI → JSON → SQLite, reemplazo total) y **exportar `.md`** determinístico. Fecha ancla (Día 1) opcional. Docs/vuelos/alojamientos/reservas viven en **Resumen**.
+El tab **Plan** es el itinerario día a día (import/export `.md` híbrido). **Gastos** concentra comida/transporte/… más documentación, vuelos, reservas y alojamiento (monto opcional + hecho/pendiente). **Resumen** es el dashboard (KPIs + preview del plan).
 
 Detalle del contrato: [`docs/itinerary-import.md`](./docs/itinerary-import.md). Ejemplo: [`docs/plan.example.md`](./docs/plan.example.md).
 

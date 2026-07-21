@@ -4,58 +4,64 @@ import {
   setRates,
   getRates,
   sendError,
-  logisticsFromItems,
+  logisticsFromExpenses,
+  categoryForKind,
+  normalizeExpenseInput,
+  EXPENSE_CATEGORIES,
 } from "../helpers.mjs";
 
 function upsertExpense(db, e) {
+  const n = normalizeExpenseInput(e);
+  if (!n.description) return null;
+  if (n.amount != null && !(n.amount > 0)) return null;
+  if (!EXPENSE_CATEGORIES.includes(n.category)) n.category = "otros";
   const id = e.id || uid();
-  const description = (e.description ?? e.desc ?? "").trim();
-  const amount = Number(e.amount);
-  if (!description || !(amount > 0)) return null;
   db.prepare(
-    `INSERT INTO expenses (id, description, amount, currency, category, spent_at)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO expenses (
+       id, description, amount, currency, category, spent_at, done, kind, meta_json, datetime_start, datetime_end
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        description=excluded.description,
        amount=excluded.amount,
        currency=excluded.currency,
        category=excluded.category,
-       spent_at=excluded.spent_at`,
+       spent_at=excluded.spent_at,
+       done=excluded.done,
+       kind=excluded.kind,
+       meta_json=excluded.meta_json,
+       datetime_start=excluded.datetime_start,
+       datetime_end=excluded.datetime_end`,
   ).run(
     id,
-    description,
-    amount,
-    e.currency || "JPY",
-    e.category || "otros",
-    e.spent_at || e.date || new Date().toISOString(),
+    n.description,
+    n.amount,
+    n.currency,
+    n.category,
+    n.spent_at,
+    n.done,
+    n.kind,
+    n.meta_json,
+    n.datetime_start,
+    n.datetime_end,
   );
   return id;
 }
 
-function upsertPlanItem(db, type, item) {
+function upsertLogisticsAsExpense(db, type, item) {
   const mapped = planItemFromFront(type, item);
-  const id = item.id || uid();
-  db.prepare(
-    `INSERT INTO plan_items (id, type, title, done, datetime_start, datetime_end, meta)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       type=excluded.type,
-       title=excluded.title,
-       done=excluded.done,
-       datetime_start=excluded.datetime_start,
-       datetime_end=excluded.datetime_end,
-       meta=excluded.meta,
-       updated_at=datetime('now')`,
-  ).run(
-    id,
-    mapped.type,
-    mapped.title,
-    mapped.done ? 1 : 0,
-    mapped.datetime_start,
-    mapped.datetime_end,
-    JSON.stringify(mapped.meta),
-  );
-  return id;
+  return upsertExpense(db, {
+    id: item.id,
+    desc: mapped.title,
+    amount: item.amount ?? null,
+    currency: item.currency ?? null,
+    category: categoryForKind(mapped.type),
+    kind: mapped.type,
+    done: mapped.done,
+    date: mapped.datetime_start || new Date().toISOString(),
+    datetime_start: mapped.datetime_start,
+    datetime_end: mapped.datetime_end,
+    meta: mapped.meta,
+  });
 }
 
 function upsertSessionWithMessages(db, sesion, modeHint) {
@@ -69,7 +75,6 @@ function upsertSessionWithMessages(db, sesion, modeHint) {
   ).run(id, name, mode === "consultar" ? "consultar" : "planificar");
 
   const mensajes = sesion.mensajes || sesion.messages || [];
-  // Idempotente: si ya hay mensajes, no duplicar por re-import
   const existing = db.prepare("SELECT COUNT(*) AS n FROM ai_messages WHERE session_id = ?").get(id).n;
   if (existing === 0 && mensajes.length) {
     const ins = db.prepare(
@@ -91,7 +96,6 @@ export async function importRoutes(app, { db }) {
 
     try {
       const tx = db.transaction(() => {
-        // Formato artifact export directo
         if (body.herramienta === "nihon-planner" || body.tipo) {
           if (body.sesion) {
             upsertSessionWithMessages(db, body.sesion, body.tipo === "consulta" ? "consultar" : "planificar");
@@ -113,7 +117,6 @@ export async function importRoutes(app, { db }) {
           }
         }
 
-        // Dump localStorage keys
         const expenses = body["jp:expenses"] ?? body.expenses;
         if (Array.isArray(expenses)) {
           for (const e of expenses) {
@@ -124,20 +127,16 @@ export async function importRoutes(app, { db }) {
         const logistics = body["jp:logistics"] ?? body.logistics;
         if (logistics && typeof logistics === "object") {
           for (const f of logistics.flights || []) {
-            upsertPlanItem(db, "flight", f);
-            summary.plan_items += 1;
+            if (upsertLogisticsAsExpense(db, "flight", f)) summary.plan_items += 1;
           }
           for (const s of logistics.stays || []) {
-            upsertPlanItem(db, "stay", s);
-            summary.plan_items += 1;
+            if (upsertLogisticsAsExpense(db, "stay", s)) summary.plan_items += 1;
           }
           for (const b of logistics.bookings || []) {
-            upsertPlanItem(db, "booking", b);
-            summary.plan_items += 1;
+            if (upsertLogisticsAsExpense(db, "booking", b)) summary.plan_items += 1;
           }
           for (const d of logistics.docs || []) {
-            upsertPlanItem(db, "doc", d);
-            summary.plan_items += 1;
+            if (upsertLogisticsAsExpense(db, "doc", d)) summary.plan_items += 1;
           }
         }
 
@@ -179,7 +178,9 @@ export async function importRoutes(app, { db }) {
 
   app.get("/api/v1/export/dump", async () => {
     const expenses = db.prepare("SELECT * FROM expenses ORDER BY spent_at DESC").all();
-    const items = db.prepare("SELECT * FROM plan_items").all();
+    const logisticsRows = db
+      .prepare("SELECT * FROM expenses WHERE kind IN ('flight','stay','booking','doc')")
+      .all();
     const sessions = db.prepare("SELECT * FROM ai_sessions ORDER BY updated_at DESC").all();
     const dumpSessions = sessions.map((s) => {
       const messages = db
@@ -195,8 +196,13 @@ export async function importRoutes(app, { db }) {
         currency: e.currency,
         category: e.category,
         date: e.spent_at?.slice(0, 10),
+        done: !!e.done,
+        kind: e.kind,
+        meta: JSON.parse(e.meta_json || "{}"),
+        datetime_start: e.datetime_start,
+        datetime_end: e.datetime_end,
       })),
-      "jp:logistics": logisticsFromItems(items),
+      "jp:logistics": logisticsFromExpenses(logisticsRows),
       "jp:rates": getRates(db),
       "jp:sessions": dumpSessions,
     };
