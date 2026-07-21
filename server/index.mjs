@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.mjs";
 import { openDb, migrate } from "./db.mjs";
 import { authHook } from "./auth/session.mjs";
-import { createAIProvider } from "./ai/provider.mjs";
+import { createAppAIProvider } from "./ai/provider.mjs";
 import { seedDefaultDocs, setRates, getRates } from "./helpers.mjs";
 import { authRoutes } from "./routes/auth.mjs";
 import { expensesRoutes } from "./routes/expenses.mjs";
@@ -33,7 +33,7 @@ async function main() {
     setRates(db, { usdArs: 1300, usdJpy: 155, source: "manual", updatedAt: null });
   }
 
-  const ai = createAIProvider(config);
+  const ai = createAppAIProvider(config);
 
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL || "info" },
@@ -60,8 +60,16 @@ async function main() {
 
   app.get("/health", async () => ({
     ok: true,
-    provider: config.aiProvider,
-    model: config.aiModel,
+    provider: ai.provider || config.aiProvider,
+    model: ai.model || config.aiModel,
+    primary: ai.primary || { provider: config.aiProvider, model: config.aiModel, ready: !!config.aiApiKey },
+    fallback: ai.fallback || {
+      provider: config.aiFallback?.provider,
+      model: config.aiFallback?.model,
+      ready: !!config.aiFallback?.aiApiKey,
+    },
+    stickyFallback: !!ai.stickyFallback,
+    lastFailover: ai.lastFailover || null,
   }));
   app.get("/api/v1/health", async () => ({ ok: true }));
 
@@ -102,7 +110,11 @@ async function main() {
   }
 
   await app.listen({ port: config.port, host: config.host });
-  app.log.info(`Nihon API en http://${config.host}:${config.port} · AI=${config.aiProvider}/${config.aiModel}`);
+  const fb = config.aiFallback;
+  app.log.info(
+    `Nihon API en http://${config.host}:${config.port} · AI=${config.aiProvider}/${config.aiModel}` +
+      (fb?.aiApiKey ? ` · fallback=${fb.provider}/${fb.model}` : " · fallback=off"),
+  );
 }
 
 main().catch((e) => {

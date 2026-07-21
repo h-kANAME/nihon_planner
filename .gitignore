@@ -10,4 +10,7 @@ nihon-planner*.json
 docs/plan.app-*.json
 docs/plan.example.cursor.json
 docs/plan.compare-report.md
+docs/ai-provider-bench.md
+docs/ai-provider-bench.json
 scripts/convert-plan-cursor.mjs
+docs/ai-provider-bench.lite-baseline.json

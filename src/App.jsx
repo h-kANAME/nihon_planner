@@ -1916,6 +1916,11 @@ function ItineraryStopSheet({ sheet, busy, onChange, onSave, onClose }) {
 }
 
 /* ================= ASISTENTE AI (Fase 2 — historial en server) ================= */
+const SESSION_AI_OPTIONS = [
+  { value: "deepseek", label: "DeepSeek" },
+  { value: "google", label: "Google" },
+];
+
 function Asistente({ sessions, setSessions }) {
   const [mode, setMode] = useState("planificar");
   const [activeId, setActiveId] = useState(sessions[0]?.id || null);
@@ -1929,6 +1934,8 @@ function Asistente({ sessions, setSessions }) {
   const [importing, setImporting] = useState(false);
   const [sessionBusy, setSessionBusy] = useState(false);
   const [nameSheet, setNameSheet] = useState(null);
+  /** Preferencia al crear sesión nueva (default DeepSeek). */
+  const [draftAiProvider, setDraftAiProvider] = useState("deepseek");
   const bottomRef = useRef(null);
   const importRef = useRef(null);
   const [askConfirm, confirmNode] = useConfirmDialog();
@@ -1940,6 +1947,7 @@ function Asistente({ sessions, setSessions }) {
       : active?.mode === "planificar"
         ? active
         : null;
+  const sessionAiProvider = currentSession?.ai_provider === "google" ? "google" : (currentSession ? "deepseek" : draftAiProvider);
 
   const refreshSessions = async () => {
     const list = await api.listSessions();
@@ -1974,7 +1982,11 @@ function Asistente({ sessions, setSessions }) {
     if (desiredMode === "consultar") {
       let consult = sessions.find((s) => s.mode === "consultar");
       if (!consult) {
-        consult = await api.createSession({ mode: "consultar", name: "Consultar plan" });
+        consult = await api.createSession({
+          mode: "consultar",
+          name: "Consultar plan",
+          ai_provider: draftAiProvider === "google" ? "google" : "deepseek",
+        });
         await refreshSessions();
       }
       setActiveId(consult.id);
@@ -1989,10 +2001,29 @@ function Asistente({ sessions, setSessions }) {
       setActiveId(plan.id);
       return plan.id;
     }
-    const created = await api.createSession({ mode: "planificar" });
+    const created = await api.createSession({
+      mode: "planificar",
+      ai_provider: draftAiProvider === "google" ? "google" : "deepseek",
+    });
     await refreshSessions();
     setActiveId(created.id);
     return created.id;
+  };
+
+  const onChangeSessionAi = async (next) => {
+    const provider = next === "google" ? "google" : "deepseek";
+    setDraftAiProvider(provider);
+    if (!currentSession) return;
+    setSessionBusy(true);
+    setError(null);
+    try {
+      await api.updateSession(currentSession.id, { ai_provider: provider });
+      await refreshSessions();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSessionBusy(false);
+    }
   };
 
   const openNewSession = () => {
@@ -2004,7 +2035,11 @@ function Asistente({ sessions, setSessions }) {
     setError(null);
     try {
       if (nameSheet?.kind === "create") {
-        const s = await api.createSession({ mode: "planificar", name });
+        const s = await api.createSession({
+          mode: "planificar",
+          name,
+          ai_provider: draftAiProvider === "google" ? "google" : "deepseek",
+        });
         await refreshSessions();
         setMode("planificar");
         setActiveId(s.id);
@@ -2205,7 +2240,7 @@ function Asistente({ sessions, setSessions }) {
           planSessions.length > 0 ? (
             <select
               aria-label="Sesión activa"
-              style={{ ...S.input, flex: "1 1 220px", marginBottom: 0 }}
+              style={{ ...S.input, flex: "1 1 180px", marginBottom: 0, minHeight: 44, alignSelf: "center" }}
               value={currentSession?.id || ""}
               onChange={(e) => setActiveId(e.target.value)}
             >
@@ -2214,10 +2249,10 @@ function Asistente({ sessions, setSessions }) {
               ))}
             </select>
           ) : (
-            <span style={{ flex: 1, color: C.onSurfaceVariant, fontSize: 13 }}>Todavía no hay sesiones de planificación.</span>
+            <span style={{ flex: 1, color: C.onSurfaceVariant, fontSize: 13, alignSelf: "center" }}>Todavía no hay sesiones de planificación.</span>
           )
         ) : (
-          <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+          <div style={{ flex: "1 1 180px", minWidth: 0, alignSelf: "center" }}>
             <div style={{ color: C.onSurface, fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {currentSession?.name || "Consultar plan"}
             </div>
@@ -2226,21 +2261,33 @@ function Asistente({ sessions, setSessions }) {
             </div>
           </div>
         )}
+        <select
+          aria-label="Modelo AI de la sesión"
+          title="Modelo AI"
+          style={{ ...S.input, flex: "0 1 140px", minWidth: 120, marginBottom: 0, minHeight: 44, alignSelf: "center" }}
+          value={sessionAiProvider}
+          disabled={sessionBusy || busy}
+          onChange={(e) => onChangeSessionAi(e.target.value)}
+        >
+          {SESSION_AI_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
         <button
           type="button"
-          style={S.secondary}
+          style={{ ...S.secondary, alignSelf: "center" }}
           disabled={!currentSession || sessionBusy}
           onClick={() => setNameSheet({ kind: "rename", sessionId: currentSession.id, name: currentSession.name })}
         >
           Renombrar
         </button>
-        <button type="button" style={S.secondary} disabled={!currentSession || sessionBusy} onClick={resetSession}>
+        <button type="button" style={{ ...S.secondary, alignSelf: "center" }} disabled={!currentSession || sessionBusy} onClick={resetSession}>
           Limpiar memoria
         </button>
         {mode === "planificar" && (
           <button
             type="button"
-            style={{ ...S.secondary, color: C.error, borderColor: C.error }}
+            style={{ ...S.secondary, color: C.error, borderColor: C.error, alignSelf: "center" }}
             disabled={!currentSession || sessionBusy}
             onClick={deleteCurrentSession}
           >

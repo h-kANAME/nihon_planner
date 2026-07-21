@@ -2,7 +2,7 @@
 
 Planificador de viaje a Japón: itinerario día a día, gastos híbridos (monto opcional + checklist de docs/vuelos/reservas/alojamiento), dashboard Resumen, cotizaciones y asistente AI.
 
-**Stack:** React (Vite) + Fastify + SQLite · Auth Google (ID token) · AI multi-proveedor (DeepSeek / Claude) · 100% Docker.
+**Stack:** React (Vite) + Fastify + SQLite · Auth Google (ID token) · AI Google Gemini + DeepSeek (failover) · 100% Docker.
 
 ## Requisitos
 
@@ -14,7 +14,7 @@ Planificador de viaje a Japón: itinerario día a día, gastos híbridos (monto 
 ```bash
 cp .env.example .env
 # Completar: GOOGLE_CLIENT_ID, VITE_GOOGLE_CLIENT_ID, ALLOWED_EMAILS,
-# SESSION_SECRET, AI_API_KEY (y AI_PROVIDER)
+# SESSION_SECRET, GEMINI_API_KEY, DEEPSEEK_API_KEY
 ```
 
 ### Google Cloud Console
@@ -62,12 +62,22 @@ Detrás de Traefik/Caddy: HTTPS + `COOKIE_SECURE=true`.
 
 ## AI
 
-| Env | Test | Prod |
-|-----|------|------|
-| `AI_PROVIDER` | `deepseek` | `anthropic` |
-| `AI_MODEL` | `deepseek-chat` | `claude-sonnet-4-6` |
-| `AI_BASE_URL` | `https://api.deepseek.com/v1` | `https://api.anthropic.com` |
-| `AI_API_KEY` | key DeepSeek | key Anthropic |
+Pipeline con **failover**: primary Google (`gemini-flash-lite-latest`) → fallback DeepSeek si hay cuota/429/5xx. Tras el primer failover, el proceso queda en DeepSeek (sticky) para no romper imports largos.
+
+| Rol | Env | Valor típico |
+|-----|-----|----------------|
+| Primary | `AI_PROVIDER` / `AI_MODEL` / `GEMINI_API_KEY` | `google` / `gemini-flash-lite-latest` |
+| Fallback | `AI_FALLBACK_PROVIDER` / `DEEPSEEK_API_KEY` | `deepseek` / `deepseek-chat` |
+
+La key de Gemini: [Google AI Studio](https://aistudio.google.com/apikey) → `GEMINI_API_KEY` (no confundir con `GOOGLE_CLIENT_ID`).
+
+`GET /health` expone `primary`, `fallback`, `stickyFallback` y `lastFailover`.
+
+Bench:
+
+```bash
+npm run bench:ai
+```
 
 ## Design tokens (kyz.com.ar)
 

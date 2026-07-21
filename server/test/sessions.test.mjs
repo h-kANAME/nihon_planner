@@ -37,6 +37,15 @@ test("renombrar, limpiar y eliminar una sesión", async (t) => {
   assert.equal(renamed.statusCode, 200);
   assert.equal(renamed.json().name, "Ruta Tokio y Kyoto");
   assert.equal(renamed.json().message_count, 1);
+  assert.equal(renamed.json().ai_provider, "deepseek");
+
+  const setGoogle = await app.inject({
+    method: "PATCH",
+    url: `/api/v1/sessions/${id}`,
+    payload: { ai_provider: "google" },
+  });
+  assert.equal(setGoogle.statusCode, 200);
+  assert.equal(setGoogle.json().ai_provider, "google");
 
   const invalid = await app.inject({
     method: "PATCH",

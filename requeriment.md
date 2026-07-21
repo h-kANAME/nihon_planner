@@ -53,10 +53,10 @@ Abstracción `AIProvider` con una única función `chat({system, messages}) → 
 
 | Env | Test | Producción |
 |---|---|---|
-| `AI_PROVIDER` | `deepseek` | `anthropic` |
-| `AI_MODEL` | `deepseek-chat` | `claude-sonnet-4-6` |
-| `AI_BASE_URL` | `https://api.deepseek.com/v1` | `https://api.anthropic.com` |
-| `AI_API_KEY` | key de DeepSeek | key de Anthropic |
+| `AI_PROVIDER` | `deepseek` / `google` | `anthropic` |
+| `AI_MODEL` | `deepseek-chat` / `gemini-flash-lite-latest` | `claude-sonnet-4-6` |
+| `AI_BASE_URL` | DeepSeek o Gemini OpenAI-compat | `https://api.anthropic.com` |
+| `AI_API_KEY` / `GEMINI_API_KEY` | key del provider activo | key de Anthropic |
 
 Notas de implementación:
 - DeepSeek expone API **compatible con formato OpenAI** (`/chat/completions`, system como primer mensaje `role: "system"`); Anthropic usa `/v1/messages` con `system` como campo separado y header `anthropic-version`. La abstracción normaliza ambos, incluyendo el mapeo de `usage` (tokens in/out) a `ai_messages.meta`.

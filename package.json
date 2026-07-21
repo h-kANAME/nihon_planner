@@ -10,7 +10,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "node server/index.mjs",
-    "test": "node --test server/test/*.test.mjs"
+    "test": "node --test server/test/*.test.mjs",
+    "bench:ai": "node scripts/bench-ai-providers.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "^9.4.0",

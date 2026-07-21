@@ -31,6 +31,28 @@ async function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/** Extrae delay sugerido de errores Gemini/OpenAI (Retry-After / "retry in Ns"). */
+export function parseRetryAfterMs(err, fallbackMs = 45_000) {
+  const header = Number(err?.retryAfterMs);
+  if (Number.isFinite(header) && header > 0) return header;
+
+  const msg = String(err?.message || "");
+  const m = /retry in\s+(\d+(?:\.\d+)?)\s*s/i.exec(msg);
+  if (m) return Math.ceil(Number(m[1]) * 1000);
+
+  const details = err?.details;
+  if (Array.isArray(details)) {
+    for (const d of details) {
+      const delay = d?.retryDelay;
+      if (typeof delay === "string") {
+        const sec = Number(String(delay).replace(/s$/i, ""));
+        if (Number.isFinite(sec) && sec > 0) return Math.ceil(sec * 1000);
+      }
+    }
+  }
+  return fallbackMs;
+}
+
 async function withRetry(fn, { retries = 1 } = {}) {
   let lastErr;
   for (let i = 0; i <= retries; i++) {
@@ -40,13 +62,28 @@ async function withRetry(fn, { retries = 1 } = {}) {
       lastErr = e;
       const status = e.status || e.statusCode;
       if (i < retries && (status === 429 || (status >= 500 && status < 600))) {
-        await sleep(800 * (i + 1));
+        const waitMs =
+          status === 429
+            ? parseRetryAfterMs(e, 45_000) + i * 5_000
+            : 800 * (i + 1);
+        await sleep(waitMs);
         continue;
       }
       throw e;
     }
   }
   throw lastErr;
+}
+
+function createRateGate(minIntervalMs) {
+  let last = 0;
+  return async () => {
+    if (!minIntervalMs || minIntervalMs <= 0) return;
+    const now = Date.now();
+    const wait = last + minIntervalMs - now;
+    if (wait > 0) await sleep(wait);
+    last = Date.now();
+  };
 }
 
 async function chatAnthropic({ baseUrl, apiKey, model, maxTokens, system, messages, timeoutMs = 120_000 }) {
@@ -93,7 +130,16 @@ async function chatAnthropic({ baseUrl, apiKey, model, maxTokens, system, messag
   }
 }
 
-async function chatOpenAICompatible({ baseUrl, apiKey, model, maxTokens, system, messages, timeoutMs = 120_000 }) {
+async function chatOpenAICompatible({
+  baseUrl,
+  apiKey,
+  model,
+  maxTokens,
+  system,
+  messages,
+  timeoutMs = 120_000,
+  providerLabel = "openai-compatible",
+}) {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -118,6 +164,14 @@ async function chatOpenAICompatible({ baseUrl, apiKey, model, maxTokens, system,
     if (!res.ok) {
       const err = new Error(data?.error?.message || `AI HTTP ${res.status}`);
       err.status = res.status;
+      err.details = data?.error?.details;
+      const retryInfo = Array.isArray(data?.error?.details)
+        ? data.error.details.find((d) => d?.retryDelay)
+        : null;
+      if (retryInfo?.retryDelay) {
+        const sec = Number(String(retryInfo.retryDelay).replace(/s$/i, ""));
+        if (Number.isFinite(sec)) err.retryAfterMs = Math.ceil(sec * 1000);
+      }
       throw err;
     }
     const content = data.choices?.[0]?.message?.content ?? "";
@@ -129,7 +183,7 @@ async function chatOpenAICompatible({ baseUrl, apiKey, model, maxTokens, system,
         tokens_in: data.usage?.prompt_tokens ?? null,
         tokens_out: data.usage?.completion_tokens ?? null,
         model,
-        provider: "openai-compatible",
+        provider: providerLabel,
       },
     };
   } finally {
@@ -205,28 +259,55 @@ export async function runChatComplete(chatFn, {
 
 export function createAIProvider(config) {
   const {
-    aiProvider,
     aiModel,
     aiBaseUrl,
     aiApiKey,
     aiMaxTokens,
     aiMaxContinuations = 3,
+    aiRetries,
   } = config;
+  const aiProvider =
+    config.aiProvider === "gemini" ? "google" : String(config.aiProvider || "deepseek").toLowerCase();
 
   if (!aiApiKey) {
     const missing = async () => {
-      const err = new Error("AI_API_KEY no configurada");
+      const err = new Error(
+        aiProvider === "google"
+          ? "GEMINI_API_KEY / GOOGLE_AI_API_KEY no configurada"
+          : "DEEPSEEK_API_KEY / AI_API_KEY no configurada",
+      );
       err.status = 503;
+      err.code = "AI_KEY_MISSING";
       throw err;
     };
-    return { chat: missing, chatComplete: missing };
+    return { chat: missing, chatComplete: missing, provider: aiProvider, model: aiModel, ready: false };
   }
+
+  // Con billing, pacing leve; con failover externo preferí pocos retries (aiRetries).
+  const pace = createRateGate(aiProvider === "google" ? 400 : 0);
+  const retries = Number.isFinite(aiRetries)
+    ? aiRetries
+    : aiProvider === "google"
+      ? 2
+      : 1;
 
   async function chatOnce({ system, messages, maxTokens }) {
     const tokens = Number.isFinite(maxTokens) && maxTokens > 0 ? maxTokens : aiMaxTokens;
-    return withRetry(async () => {
-      if (aiProvider === "anthropic") {
-        return chatAnthropic({
+    await pace();
+    return withRetry(
+      async () => {
+        if (aiProvider === "anthropic") {
+          return chatAnthropic({
+            baseUrl: aiBaseUrl,
+            apiKey: aiApiKey,
+            model: aiModel,
+            maxTokens: tokens,
+            system,
+            messages,
+            timeoutMs: 120_000,
+          });
+        }
+        return chatOpenAICompatible({
           baseUrl: aiBaseUrl,
           apiKey: aiApiKey,
           model: aiModel,
@@ -234,21 +315,17 @@ export function createAIProvider(config) {
           system,
           messages,
           timeoutMs: 120_000,
+          providerLabel: aiProvider === "google" ? "google" : aiProvider === "deepseek" ? "deepseek" : "openai-compatible",
         });
-      }
-      return chatOpenAICompatible({
-        baseUrl: aiBaseUrl,
-        apiKey: aiApiKey,
-        model: aiModel,
-        maxTokens: tokens,
-        system,
-        messages,
-        timeoutMs: 120_000,
-      });
-    });
+      },
+      { retries },
+    );
   }
 
   return {
+    provider: aiProvider,
+    model: aiModel,
+    ready: true,
     chat: chatOnce,
     async chatComplete({
       system,
@@ -274,4 +351,137 @@ export function createAIProvider(config) {
       });
     },
   };
+}
+
+/** Errores donde conviene pasar al fallback (cuota, red, 5xx). */
+export function isFailoverError(err) {
+  if (!err) return false;
+  const status = err.status || err.statusCode;
+  if (status === 429 || status === 402 || status === 503 || status === 502 || status === 504) return true;
+  if (status >= 500 && status < 600) return true;
+  if (err.code === "AI_KEY_MISSING") return true;
+  if (err.name === "AbortError") return true;
+  const msg = String(err.message || "");
+  if (/quota|resource.?exhausted|rate.?limit|billing|insufficient|tokens?|capacity|unavailable|ECONNRESET|ETIMEDOUT|fetch failed/i.test(msg)) {
+    return true;
+  }
+  // Modelos deprecados / no disponibles para la cuenta
+  if (status === 404 && /no longer available|not found|NOT_FOUND/i.test(msg)) return true;
+  return false;
+}
+
+/**
+ * Primary → fallback con sticky: tras el primer failover, las siguientes
+ * llamadas de este proceso usan el fallback (evita 10×429 en import híbrido).
+ */
+export function createFailoverAIProvider(primary, fallback, { log } = {}) {
+  let stickyFallback = false;
+  let lastFailover = null;
+
+  const chain = () => {
+    const list = [];
+    if (stickyFallback) {
+      if (fallback?.ready) list.push(fallback);
+      if (primary?.ready) list.push(primary);
+    } else {
+      if (primary?.ready) list.push(primary);
+      if (fallback?.ready) list.push(fallback);
+    }
+    return list;
+  };
+
+  async function run(method, args) {
+    const providers = chain();
+    if (!providers.length) {
+      const err = new Error("Ningún proveedor AI configurado (GEMINI_API_KEY + DEEPSEEK_API_KEY)");
+      err.status = 503;
+      err.code = "AI_KEY_MISSING";
+      throw err;
+    }
+
+    let lastErr;
+    for (let i = 0; i < providers.length; i++) {
+      const p = providers[i];
+      try {
+        const result = await p[method](args);
+        return result;
+      } catch (e) {
+        lastErr = e;
+        const hasNext = i < providers.length - 1;
+        if (hasNext && isFailoverError(e)) {
+          stickyFallback = true;
+          lastFailover = {
+            at: new Date().toISOString(),
+            from: p.provider,
+            to: providers[i + 1].provider,
+            status: e.status || e.statusCode || null,
+            message: e.message,
+          };
+          (args?.log || log)?.warn?.(
+            {
+              from: p.provider,
+              to: providers[i + 1].provider,
+              status: lastFailover.status,
+              err: e.message,
+            },
+            "AI failover → proveedor secundario",
+          );
+          continue;
+        }
+        throw e;
+      }
+    }
+    throw lastErr;
+  }
+
+  const active = () => (stickyFallback && fallback?.ready ? fallback : primary?.ready ? primary : fallback);
+
+  return {
+    provider: active()?.provider || primary?.provider || "none",
+    model: active()?.model || primary?.model,
+    primary: { provider: primary?.provider, model: primary?.model, ready: !!primary?.ready },
+    fallback: { provider: fallback?.provider, model: fallback?.model, ready: !!fallback?.ready },
+    get stickyFallback() {
+      return stickyFallback;
+    },
+    get lastFailover() {
+      return lastFailover;
+    },
+    chat: (args) => run("chat", args),
+    chatComplete: (args) => run("chatComplete", args),
+  };
+}
+
+/** Google (flash-lite) primario + DeepSeek fallback, según config de app. */
+export function createAppAIProvider(config, { log } = {}) {
+  const primary = createAIProvider({
+    aiProvider: config.aiProvider,
+    aiModel: config.aiModel,
+    aiBaseUrl: config.aiBaseUrl,
+    aiApiKey: config.aiApiKey,
+    aiMaxTokens: config.aiMaxTokens,
+    aiMaxContinuations: config.aiMaxContinuations,
+    // Pocos retries: si hay cuota/429, fallamos rápido al fallback.
+    aiRetries: config.aiPrimaryRetries ?? 1,
+  });
+
+  const fb = config.aiFallback;
+  const fallback = fb?.aiApiKey || fb?.provider
+    ? createAIProvider({
+        aiProvider: fb.provider || "deepseek",
+        aiModel: fb.model,
+        aiBaseUrl: fb.baseUrl,
+        aiApiKey: fb.aiApiKey || "",
+        aiMaxTokens: config.aiMaxTokens,
+        aiMaxContinuations: config.aiMaxContinuations,
+        aiRetries: config.aiFallbackRetries ?? 2,
+      })
+    : { ready: false, provider: "deepseek", model: "deepseek-chat", chat: null, chatComplete: null };
+
+  if (!primary.ready && !fallback.ready) {
+    return createAIProvider({ aiProvider: config.aiProvider, aiApiKey: "" });
+  }
+  if (primary.ready && !fallback.ready) return primary;
+  if (!primary.ready && fallback.ready) return fallback;
+  return createFailoverAIProvider(primary, fallback, { log });
 }

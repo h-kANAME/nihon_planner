@@ -179,6 +179,8 @@ export const api = {
   createSession: (body) => request("/sessions", { method: "POST", body: JSON.stringify(body) }),
   renameSession: (id, name) =>
     request(`/sessions/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+  updateSession: (id, body) =>
+    request(`/sessions/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteSession: (id) => request(`/sessions/${id}`, { method: "DELETE" }),
   getMessages: (id) => request(`/sessions/${id}/messages`),
   chat: (id, content) =>

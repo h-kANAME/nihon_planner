@@ -1,6 +1,41 @@
 import { uid } from "../db.mjs";
 import { sendError, parseJson } from "../helpers.mjs";
 import { buildTripContext, systemPromptFor, COMPACT_PROMPT } from "../prompts.mjs";
+import { createAIProvider } from "../ai/provider.mjs";
+import { buildAiConfig } from "../config.mjs";
+
+const SESSION_AI_PROVIDERS = new Set(["deepseek", "google"]);
+
+/** @returns {'deepseek'|'google'|null} null = valor inválido explícito */
+function parseSessionAiProvider(raw) {
+  const p = String(raw ?? "").toLowerCase().trim();
+  if (!p) return "deepseek";
+  if (p === "gemini") return "google";
+  if (SESSION_AI_PROVIDERS.has(p)) return p;
+  return null;
+}
+
+function sessionAiProvider(session) {
+  return parseSessionAiProvider(session?.ai_provider) || "deepseek";
+}
+
+function aiForSession(session) {
+  const provider = sessionAiProvider(session);
+  return createAIProvider(buildAiConfig(provider));
+}
+
+function serializeSession(db, s) {
+  return {
+    id: s.id,
+    name: s.name,
+    mode: s.mode,
+    ai_provider: sessionAiProvider(s),
+    message_count: messageCount(db, s.id),
+    updated_at: s.updated_at,
+    created_at: s.created_at,
+    has_summary: !!s.summary,
+  };
+}
 
 function messageCount(db, sessionId) {
   return db.prepare("SELECT COUNT(*) AS n FROM ai_messages WHERE session_id = ?").get(sessionId).n;
@@ -21,7 +56,7 @@ function listMessages(db, sessionId, { excludeCompacted = false } = {}) {
     .filter((m) => !(excludeCompacted && m.meta?.compacted));
 }
 
-async function maybeCompact(db, ai, session, config, log) {
+async function maybeCompact(db, sessionAi, session, config, log) {
   const threshold = config.compactThreshold;
   const all = listMessages(db, session.id);
   if (all.length <= threshold) return session;
@@ -35,7 +70,7 @@ async function maybeCompact(db, ai, session, config, log) {
   const transcript = toCompact.map((m) => `${m.role}: ${m.content}`).join("\n\n");
   let summaryText = session.summary || "";
   try {
-    const result = await ai.chat({
+    const result = await sessionAi.chat({
       system: COMPACT_PROMPT,
       messages: [{ role: "user", content: transcript }],
     });
@@ -67,18 +102,10 @@ function contextMessages(db, session) {
   return last10.map((m) => ({ role: m.role, content: m.content }));
 }
 
-export async function sessionsRoutes(app, { db, ai, config }) {
+export async function sessionsRoutes(app, { db, ai: _appAi, config }) {
   app.get("/api/v1/sessions", async () => {
     const rows = db.prepare("SELECT * FROM ai_sessions ORDER BY updated_at DESC").all();
-    return rows.map((s) => ({
-      id: s.id,
-      name: s.name,
-      mode: s.mode,
-      message_count: messageCount(db, s.id),
-      updated_at: s.updated_at,
-      created_at: s.created_at,
-      has_summary: !!s.summary,
-    }));
+    return rows.map((s) => serializeSession(db, s));
   });
 
   app.post("/api/v1/sessions", async (request, reply) => {
@@ -87,41 +114,53 @@ export async function sessionsRoutes(app, { db, ai, config }) {
     const name =
       String(body.name || "").trim().slice(0, 80) ||
       `Sesión · ${new Date().toLocaleDateString("es-AR")}`;
+    const aiProvider = parseSessionAiProvider(body.ai_provider);
+    if (aiProvider == null) {
+      return sendError(reply, 400, "VALIDATION", "ai_provider debe ser deepseek o google");
+    }
     const id = uid();
-    db.prepare("INSERT INTO ai_sessions (id, name, mode) VALUES (?, ?, ?)").run(id, name, mode);
+    db.prepare("INSERT INTO ai_sessions (id, name, mode, ai_provider) VALUES (?, ?, ?, ?)").run(
+      id,
+      name,
+      mode,
+      aiProvider,
+    );
     const s = db.prepare("SELECT * FROM ai_sessions WHERE id = ?").get(id);
-    return reply.code(201).send({
-      id: s.id,
-      name: s.name,
-      mode: s.mode,
-      message_count: 0,
-      updated_at: s.updated_at,
-      created_at: s.created_at,
-    });
+    return reply.code(201).send(serializeSession(db, s));
   });
 
   app.patch("/api/v1/sessions/:id", async (request, reply) => {
-    const name = String(request.body?.name || "").trim();
-    if (!name) return sendError(reply, 400, "VALIDATION", "name requerido");
-    if (name.length > 80) {
-      return sendError(reply, 400, "VALIDATION", "name no puede superar 80 caracteres");
+    const body = request.body || {};
+    const s0 = db.prepare("SELECT * FROM ai_sessions WHERE id = ?").get(request.params.id);
+    if (!s0) return sendError(reply, 404, "NOT_FOUND", "Sesión no encontrada");
+
+    let name = s0.name;
+    if (body.name !== undefined) {
+      name = String(body.name || "").trim();
+      if (!name) return sendError(reply, 400, "VALIDATION", "name requerido");
+      if (name.length > 80) {
+        return sendError(reply, 400, "VALIDATION", "name no puede superar 80 caracteres");
+      }
     }
 
-    const info = db
-      .prepare("UPDATE ai_sessions SET name = ?, updated_at = datetime('now') WHERE id = ?")
-      .run(name, request.params.id);
-    if (!info.changes) return sendError(reply, 404, "NOT_FOUND", "Sesión no encontrada");
+    let aiProvider = sessionAiProvider(s0);
+    if (body.ai_provider !== undefined) {
+      aiProvider = parseSessionAiProvider(body.ai_provider);
+      if (aiProvider == null) {
+        return sendError(reply, 400, "VALIDATION", "ai_provider debe ser deepseek o google");
+      }
+    }
+
+    if (body.name === undefined && body.ai_provider === undefined) {
+      return sendError(reply, 400, "VALIDATION", "name o ai_provider requerido");
+    }
+
+    db.prepare(
+      "UPDATE ai_sessions SET name = ?, ai_provider = ?, updated_at = datetime('now') WHERE id = ?",
+    ).run(name, aiProvider, request.params.id);
 
     const s = db.prepare("SELECT * FROM ai_sessions WHERE id = ?").get(request.params.id);
-    return {
-      id: s.id,
-      name: s.name,
-      mode: s.mode,
-      message_count: messageCount(db, s.id),
-      updated_at: s.updated_at,
-      created_at: s.created_at,
-      has_summary: !!s.summary,
-    };
+    return serializeSession(db, s);
   });
 
   app.delete("/api/v1/sessions/:id", async (request, reply) => {
@@ -138,6 +177,7 @@ export async function sessionsRoutes(app, { db, ai, config }) {
         id: s.id,
         name: s.name,
         mode: s.mode,
+        ai_provider: sessionAiProvider(s),
         summary: s.summary,
         updated_at: s.updated_at,
       },
@@ -157,11 +197,13 @@ export async function sessionsRoutes(app, { db, ai, config }) {
     ).run(s.id, content);
     db.prepare("UPDATE ai_sessions SET updated_at = datetime('now') WHERE id = ?").run(s.id);
 
-    let session = await maybeCompact(db, ai, s, config, request.log);
+    const sessionAi = aiForSession(s);
+    let session = await maybeCompact(db, sessionAi, s, config, request.log);
 
     const tripJson = buildTripContext(db);
     const system = systemPromptFor(session.mode, tripJson, session.summary);
     const messages = contextMessages(db, session);
+    const preferred = sessionAiProvider(session);
 
     let result;
     try {
@@ -171,21 +213,22 @@ export async function sessionsRoutes(app, { db, ai, config }) {
           mode: session.mode,
           msgCount: messages.length,
           hasSummary: !!session.summary,
-          provider: config.aiProvider,
+          provider: preferred,
+          model: sessionAi.model,
         },
-        "Llamada AI",
+        "Llamada AI (sesión)",
       );
-      result = await ai.chatComplete({ system, messages, log: request.log });
+      result = await sessionAi.chatComplete({ system, messages, log: request.log });
     } catch (e) {
-      request.log.error({ err: e.message, status: e.status }, "Upstream AI error");
+      request.log.error({ err: e.message, status: e.status, provider: preferred }, "Upstream AI error");
       return sendError(reply, 502, "AI_UPSTREAM", e.message || "Error del proveedor AI");
     }
 
     const meta = {
-      model: result.usage?.model || config.aiModel,
+      model: result.usage?.model || sessionAi.model,
       tokens_in: result.usage?.tokens_in,
       tokens_out: result.usage?.tokens_out,
-      provider: result.usage?.provider || config.aiProvider,
+      provider: result.usage?.provider || preferred,
       stop_reason: result.stop_reason,
       parts: result.parts,
       continued: !!result.continued,
@@ -207,14 +250,7 @@ export async function sessionsRoutes(app, { db, ai, config }) {
         meta: parseJson(assistantMsg.meta),
         created_at: assistantMsg.created_at,
       },
-      session: {
-        id: session.id,
-        name: session.name,
-        mode: session.mode,
-        summary: session.summary,
-        message_count: messageCount(db, session.id),
-        updated_at: session.updated_at,
-      },
+      session: serializeSession(db, session),
     };
   });
 
@@ -238,6 +274,7 @@ export async function sessionsRoutes(app, { db, ai, config }) {
       sesion: {
         id: s.id,
         nombre: s.name,
+        ai_provider: sessionAiProvider(s),
         mensajes: messages,
       },
     };
