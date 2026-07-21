@@ -75,6 +75,12 @@ Documentados en `src/theme.js` (dark `#2d2e32` / `#25262a`, acento `#15eb80`, ti
 
 **Gate de diseño:** revisar pantalla Resumen con los tokens aplicados antes del merge definitivo.
 
+## Itinerario (Plan)
+
+El tab **Plan** es un itinerario día a día. Podés **importar un `.md`** (pipeline AI → JSON → SQLite, reemplazo total) y **exportar `.md`** determinístico. Fecha ancla (Día 1) opcional. Docs/vuelos/alojamientos/reservas viven en **Resumen**.
+
+Detalle del contrato: [`docs/itinerary-import.md`](./docs/itinerary-import.md). Ejemplo: [`docs/plan.example.md`](./docs/plan.example.md).
+
 ## API
 
 Colección: [`api.http`](./api.http). Prefijo `/api/v1`. Auth por cookie `httpOnly` tras `POST /auth/google`.

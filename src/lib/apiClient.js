@@ -49,6 +49,128 @@ export const api = {
   syncLogistics: (logistics) =>
     request("/plan-items/sync-logistics", { method: "PUT", body: JSON.stringify(logistics) }),
 
+  getItinerary: () => request("/itinerary"),
+  putItineraryMeta: (body) =>
+    request("/itinerary/meta", { method: "PUT", body: JSON.stringify(body) }),
+  createItineraryDay: (body) =>
+    request("/itinerary/days", { method: "POST", body: JSON.stringify(body) }),
+  patchItineraryDay: (id, body) =>
+    request(`/itinerary/days/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteItineraryDay: (id) => request(`/itinerary/days/${id}`, { method: "DELETE" }),
+  createItineraryStop: (dayId, body) =>
+    request(`/itinerary/days/${dayId}/stops`, { method: "POST", body: JSON.stringify(body) }),
+  patchItineraryStop: (id, body) =>
+    request(`/itinerary/stops/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteItineraryStop: (id) => request(`/itinerary/stops/${id}`, { method: "DELETE" }),
+  importItineraryMd: (markdown, filename) =>
+    request("/itinerary/import-md", {
+      method: "POST",
+      body: JSON.stringify({ markdown, filename }),
+    }),
+  /**
+   * Import con progreso NDJSON.
+   * @param {string} markdown
+   * @param {string} [filename]
+   * @param {(p: object) => void} [onProgress]
+   */
+  importItineraryMdStream: async (markdown, filename, onProgress) => {
+    const res = await fetch(`${BASE}/itinerary/import-md`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markdown, filename, stream: true }),
+    });
+    if (!res.ok || !res.body) {
+      const text = await res.text();
+      let msg = `HTTP ${res.status}`;
+      try {
+        msg = JSON.parse(text)?.error?.message || msg;
+      } catch {
+        /* raw */
+      }
+      throw new Error(msg);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let finalResult = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        let evt;
+        try {
+          evt = JSON.parse(trimmed);
+        } catch {
+          continue;
+        }
+        if (evt.type === "progress") {
+          onProgress?.(evt);
+        } else if (evt.type === "done") {
+          onProgress?.({
+            phase: "done",
+            percent: 100,
+            message: evt.message || "Importación completa",
+            detail: evt.detail,
+          });
+          finalResult = {
+            itinerary: evt.itinerary,
+            warnings: evt.warnings || [],
+            meta: evt.meta,
+          };
+        } else if (evt.type === "error") {
+          const err = new Error(evt.message || "Error al importar");
+          err.code = evt.code;
+          err.status = evt.status;
+          throw err;
+        }
+      }
+    }
+
+    if (buffer.trim()) {
+      try {
+        const evt = JSON.parse(buffer.trim());
+        if (evt.type === "done") {
+          finalResult = {
+            itinerary: evt.itinerary,
+            warnings: evt.warnings || [],
+            meta: evt.meta,
+          };
+        } else if (evt.type === "error") {
+          throw new Error(evt.message || "Error al importar");
+        }
+      } catch (e) {
+        if (e.message && !e.message.includes("JSON")) throw e;
+      }
+    }
+
+    if (!finalResult) throw new Error("La importación terminó sin resultado");
+    return finalResult;
+  },
+  importItineraryJson: (body) =>
+    request("/itinerary/import-json", { method: "POST", body: JSON.stringify(body) }),
+  exportItineraryMd: async () => {
+    const res = await fetch(`${BASE}/itinerary/export.md`, { credentials: "include" });
+    const text = await res.text();
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try {
+        msg = JSON.parse(text)?.error?.message || msg;
+      } catch {
+        /* raw */
+      }
+      throw new Error(msg);
+    }
+    return text;
+  },
+
   getRates: () => request("/rates"),
   putRates: (body) => request("/rates", { method: "PUT", body: JSON.stringify(body) }),
   refreshRates: (force = false) =>

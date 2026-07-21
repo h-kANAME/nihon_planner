@@ -2,6 +2,8 @@
  * System prompts en español rioplatense (mismos textos del front original).
  */
 
+import { loadItinerary } from "./itinerary/store.mjs";
+
 function estado(done) {
   return done ? "CUMPLIDO ✓" : "pendiente";
 }
@@ -12,6 +14,33 @@ export function buildTripContext(db) {
 
   const expenses = db.prepare("SELECT * FROM expenses ORDER BY spent_at DESC").all();
   const items = db.prepare("SELECT * FROM plan_items ORDER BY datetime_start").all();
+  let itineraryBlock = null;
+  try {
+    const it = loadItinerary(db);
+    itineraryBlock = {
+      titulo: it.meta.title || "",
+      fecha_ancla: it.meta.anchor_date,
+      dias: it.days.map((d) => ({
+        dia: d.day_number,
+        titulo: d.title,
+        base: d.base,
+        dormir: d.stay_label,
+        hub: d.hub,
+        notas: d.notes,
+        paradas: d.stops.map((s) => ({
+          nombre: s.name,
+          kind: s.kind,
+          detalle: s.detail,
+          como_llegar: s.how_to_get,
+          est: s.est_duration,
+          notas: s.notes,
+          estado: estado(s.done),
+        })),
+      })),
+    };
+  } catch {
+    itineraryBlock = null;
+  }
 
   const toUSD = (amount, currency) => {
     if (currency === "USD") return amount;
@@ -81,6 +110,7 @@ export function buildTripContext(db) {
       item: d.title,
       estado: estado(!!d.done),
     })),
+    itinerario: itineraryBlock,
   };
 
   return JSON.stringify(data);

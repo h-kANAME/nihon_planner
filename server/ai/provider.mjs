@@ -5,6 +5,10 @@
 export const CONTINUE_PROMPT =
   "Continuá exactamente desde donde cortaste, sin repetir lo ya escrito.";
 
+export const CONTINUE_JSON_PROMPT =
+  "El JSON quedó truncado. Continuá SOLO con los caracteres JSON que faltan desde el punto de corte, sin repetir lo ya escrito, sin fences markdown y sin explicación.";
+
+
 export function normalizeStopReason(provider, raw) {
   if (provider === "anthropic") {
     if (raw === "max_tokens") return "max_tokens";
@@ -45,9 +49,9 @@ async function withRetry(fn, { retries = 1 } = {}) {
   throw lastErr;
 }
 
-async function chatAnthropic({ baseUrl, apiKey, model, maxTokens, system, messages }) {
+async function chatAnthropic({ baseUrl, apiKey, model, maxTokens, system, messages, timeoutMs = 120_000 }) {
   const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), 60_000);
+  const t = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/messages`, {
       method: "POST",
@@ -89,9 +93,9 @@ async function chatAnthropic({ baseUrl, apiKey, model, maxTokens, system, messag
   }
 }
 
-async function chatOpenAICompatible({ baseUrl, apiKey, model, maxTokens, system, messages }) {
+async function chatOpenAICompatible({ baseUrl, apiKey, model, maxTokens, system, messages, timeoutMs = 120_000 }) {
   const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), 60_000);
+  const t = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const openaiMessages = [
       { role: "system", content: system },
@@ -141,6 +145,7 @@ export async function runChatComplete(chatFn, {
   system,
   messages,
   maxContinuations = 3,
+  continuePrompt = CONTINUE_PROMPT,
   log,
   wallMs = 180_000,
 } = {}) {
@@ -155,7 +160,7 @@ export async function runChatComplete(chatFn, {
 
   while (true) {
     if (Date.now() > wallDeadline) {
-      const err = new Error("Timeout total de continuación AI (180s)");
+      const err = new Error("Timeout total de continuación AI (wall clock)");
       err.status = 504;
       throw err;
     }
@@ -164,7 +169,7 @@ export async function runChatComplete(chatFn, {
       ? [
           ...baseMessages,
           { role: "assistant", content: accumulated },
-          { role: "user", content: CONTINUE_PROMPT },
+          { role: "user", content: continuePrompt },
         ]
       : baseMessages;
 
@@ -188,6 +193,7 @@ export async function runChatComplete(chatFn, {
     stop_reason: lastStop,
     parts,
     continued: parts > 1,
+    truncated: lastStop === "max_tokens",
     usage: {
       tokens_in: tokensIn || lastUsage.tokens_in || null,
       tokens_out: tokensOut || lastUsage.tokens_out || null,
@@ -216,37 +222,55 @@ export function createAIProvider(config) {
     return { chat: missing, chatComplete: missing };
   }
 
-  async function chatOnce({ system, messages }) {
+  async function chatOnce({ system, messages, maxTokens }) {
+    const tokens = Number.isFinite(maxTokens) && maxTokens > 0 ? maxTokens : aiMaxTokens;
     return withRetry(async () => {
       if (aiProvider === "anthropic") {
         return chatAnthropic({
           baseUrl: aiBaseUrl,
           apiKey: aiApiKey,
           model: aiModel,
-          maxTokens: aiMaxTokens,
+          maxTokens: tokens,
           system,
           messages,
+          timeoutMs: 120_000,
         });
       }
       return chatOpenAICompatible({
         baseUrl: aiBaseUrl,
         apiKey: aiApiKey,
         model: aiModel,
-        maxTokens: aiMaxTokens,
+        maxTokens: tokens,
         system,
         messages,
+        timeoutMs: 120_000,
       });
     });
   }
 
   return {
     chat: chatOnce,
-    async chatComplete({ system, messages, log }) {
-      return runChatComplete(chatOnce, {
+    async chatComplete({
+      system,
+      messages,
+      log,
+      maxTokens,
+      maxContinuations,
+      continuePrompt,
+      wallMs,
+    } = {}) {
+      const bound = (args) => chatOnce({ ...args, maxTokens });
+      return runChatComplete(bound, {
         system,
         messages,
-        maxContinuations: Number.isFinite(aiMaxContinuations) ? aiMaxContinuations : 3,
+        maxContinuations: Number.isFinite(maxContinuations)
+          ? maxContinuations
+          : Number.isFinite(aiMaxContinuations)
+            ? aiMaxContinuations
+            : 3,
+        continuePrompt,
         log,
+        wallMs,
       });
     },
   };

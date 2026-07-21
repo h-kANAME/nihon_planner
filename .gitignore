@@ -7,3 +7,6 @@ data
 *.db-*
 nihon-planner*.json
 *-export*.json
+docs/plan.app-*.json
+docs/plan.example.cursor.json
+docs/plan.compare-report.md

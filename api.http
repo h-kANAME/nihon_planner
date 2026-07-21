@@ -79,6 +79,65 @@ Content-Type: application/json
 ### Plan — borrar
 DELETE {{base}}/plan-items/ID
 
+### Itinerario — get
+GET {{base}}/itinerary
+
+### Itinerario — meta (ancla opcional)
+PUT {{base}}/itinerary/meta
+Content-Type: application/json
+
+{
+  "title": "Itinerario Fito — Japón",
+  "anchor_date": "2026-04-05"
+}
+
+### Itinerario — crear día
+POST {{base}}/itinerary/days
+Content-Type: application/json
+
+{
+  "day_number": 1,
+  "title": "Arribo",
+  "base": "Tokyo",
+  "stay_label": "Ikebukuro",
+  "hub": "Ikebukuro",
+  "notes": ""
+}
+
+### Itinerario — import MD (AI)
+POST {{base}}/itinerary/import-md
+Content-Type: application/json
+
+{
+  "filename": "plan.example.md",
+  "markdown": "# Día 1\n\n**Alojamiento:** Ikebukuro\n\n#### Paradas\n\n| # | Parada | Detalle |\n| --- | --- | --- |\n| 1 | Ikebukuro | Check-in |\n"
+}
+
+### Itinerario — import JSON (sin AI)
+POST {{base}}/itinerary/import-json
+Content-Type: application/json
+
+{
+  "title": "Test",
+  "anchor_date": null,
+  "days": [
+    {
+      "day_number": 1,
+      "title": "Arribo",
+      "base": "Tokyo",
+      "stay_label": "Ikebukuro",
+      "hub": "Ikebukuro",
+      "notes": "",
+      "stops": [
+        { "kind": "stop", "name": "Check-in", "detail": "", "how_to_get": "", "est_duration": "", "notes": "" }
+      ]
+    }
+  ]
+}
+
+### Itinerario — export MD
+GET {{base}}/itinerary/export.md
+
 ### Rates — get
 GET {{base}}/rates
 

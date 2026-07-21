@@ -4,6 +4,7 @@ import { api } from "./lib/apiClient";
 import { C, S, applyTheme, resolveInitialMode, persistMode } from "./theme";
 import Login from "./Login.jsx";
 import Markdown from "./components/Markdown.jsx";
+import { useConfirmDialog } from "./components/ConfirmDialog.jsx";
 
 /* ============================================================
    NIHON PLANNER — Viaje a Japón (20 días, pareja, ARS/USD/JPY)
@@ -260,12 +261,14 @@ export default function App() {
       </header>
 
       <main style={S.main}>
-        {tab === "resumen" && <Resumen totals={totals} expenses={expenses} logistics={logistics} rates={rates} />}
+        {tab === "resumen" && (
+          <Resumen totals={totals} expenses={expenses} logistics={logistics} setLogistics={setLogistics} rates={rates} />
+        )}
         {tab === "gastos" && <Gastos expenses={expenses} setExpenses={setExpenses} convert={convert} totals={totals} />}
         {tab === "conversor" && (
           <Conversor rates={rates} setRates={setRates} convert={convert} fetchRates={() => fetchRates()} rateStatus={rateStatus} />
         )}
-        {tab === "plan" && <Plan logistics={logistics} setLogistics={setLogistics} />}
+        {tab === "plan" && <Plan />}
         {tab === "ai" && <Asistente sessions={sessions} setSessions={setSessions} />}
       </main>
 
@@ -297,8 +300,11 @@ export default function App() {
   );
 }
 
+const PLAN_PAGE = { docs: 8, flights: 8, stays: 6, bookings: 8 };
+const ITINERARY_PAGE = 8;
+
 /* ================= RESUMEN ================= */
-function Resumen({ totals, expenses, logistics, rates }) {
+function Resumen({ totals, expenses, logistics, setLogistics, rates }) {
   const docsDone = logistics.docs.filter((d) => d.done).length;
   const pendingBookings = logistics.bookings.filter((b) => !b.done && b.status !== "confirmado");
   return (
@@ -336,12 +342,103 @@ function Resumen({ totals, expenses, logistics, rates }) {
       </Card>
 
       <Card>
-        <div style={S.label}>Estado del plan</div>
+        <div style={S.label}>Estado de logística</div>
         <Row k="Documentación" v={`${docsDone}/${logistics.docs.length} listos`} />
         <Row k="Vuelos cargados" v={logistics.flights.length} />
         <Row k="Alojamientos" v={logistics.stays.length} />
         <Row k="Reservas pendientes" v={pendingBookings.length} accent={pendingBookings.length > 0} />
+        <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginTop: 8, lineHeight: 1.45 }}>
+          El itinerario día a día vive en la solapa Plan. Acá gestionás docs y logística.
+        </div>
       </Card>
+
+      <LogisticsPanel logistics={logistics} setLogistics={setLogistics} />
+    </div>
+  );
+}
+
+function LogisticsPanel({ logistics, setLogistics }) {
+  const [section, setSection] = useState("docs");
+  const upd = (patch) => setLogistics({ ...logistics, ...patch });
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+        {[["docs", "Documentación"], ["flights", "Vuelos"], ["stays", "Alojamiento"], ["bookings", "Reservas"]].map(([id, l]) => (
+          <button key={id} type="button" onClick={() => setSection(id)} style={{ ...S.chip, ...(section === id ? S.chipOn : {}) }}>{l}</button>
+        ))}
+      </div>
+
+      {section === "docs" && (
+        <PlanList
+          title="Checklist de documentación"
+          items={logistics.docs}
+          fields={[["label", "Ítem de documentación", "text"]]}
+          primaryKey="label"
+          pageSize={PLAN_PAGE.docs}
+          defaultFilter="pending"
+          dateKey={null}
+          searchKeys={["label"]}
+          onChange={(items) => upd({ docs: items })}
+        />
+      )}
+
+      {section === "flights" && (
+        <PlanList
+          title="Vuelos y traslados internos"
+          items={logistics.flights}
+          fields={[
+            ["route", "Ruta (EZE → NRT)", "text"],
+            ["datetime", "Fecha y hora de salida", "datetime"],
+            ["code", "Aerolínea / código", "text"],
+          ]}
+          primaryKey="route"
+          pageSize={PLAN_PAGE.flights}
+          dateKey="datetime"
+          searchKeys={["route", "code"]}
+          onChange={(items) => upd({ flights: items })}
+        />
+      )}
+
+      {section === "stays" && (
+        <PlanList
+          title="Alojamiento por ciudad"
+          items={logistics.stays}
+          fields={[
+            ["city", "Ciudad (Tokyo, Kyoto…)", "text"],
+            ["name", "Hotel / Airbnb", "text"],
+            ["checkin", "Check-in", "datetime"],
+            ["checkout", "Check-out", "datetime"],
+          ]}
+          primaryKey="name"
+          pageSize={PLAN_PAGE.stays}
+          dateKey="checkin"
+          searchKeys={["city", "name"]}
+          onChange={(items) => upd({ stays: items })}
+          validate={(form) => {
+            if (form.checkin && form.checkout && form.checkout < form.checkin) {
+              return "El check-out no puede ser anterior al check-in";
+            }
+            return null;
+          }}
+        />
+      )}
+
+      {section === "bookings" && (
+        <PlanList
+          title="Actividades y reservas"
+          items={logistics.bookings}
+          fields={[
+            ["name", "Actividad (Ghibli, TeamLab, Daikoku tour…)", "text"],
+            ["datetime", "Fecha y hora", "datetime"],
+          ]}
+          primaryKey="name"
+          pageSize={PLAN_PAGE.bookings}
+          dateKey="datetime"
+          searchKeys={["name"]}
+          onChange={(items) => upd({ bookings: items })}
+        />
+      )}
     </div>
   );
 }
@@ -466,97 +563,814 @@ function EditableRate({ label, value, onChange, hint }) {
   );
 }
 
-/* ================= PLAN / LOGÍSTICA (uso intensivo: sheet + lista contenida) ================= */
+/* ================= PLAN / ITINERARIO ================= */
 const fmtDT = (v) => {
   if (!v) return null;
   const d = new Date(v);
   return isNaN(d) ? v : d.toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
 };
 
-const PLAN_PAGE = { docs: 8, flights: 8, stays: 6, bookings: 8 };
+function calendarForDay(anchorDate, dayNumber) {
+  if (!anchorDate || !dayNumber) return null;
+  const [y, m, d] = String(anchorDate).split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + (dayNumber - 1));
+  return dt.toLocaleDateString("es-AR", { day: "numeric", month: "numeric", timeZone: "UTC" });
+}
 
-function Plan({ logistics, setLogistics }) {
-  const [section, setSection] = useState("docs");
-  const upd = (patch) => setLogistics({ ...logistics, ...patch });
+function Plan() {
+  const [meta, setMeta] = useState({ title: "", anchor_date: null });
+  const [days, setDays] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [warnings, setWarnings] = useState([]);
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(null);
+  const [query, setQuery] = useState("");
+  const [visible, setVisible] = useState(ITINERARY_PAGE);
+  const [daySheet, setDaySheet] = useState(null);
+  const [stopSheet, setStopSheet] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const importRef = useRef(null);
+  const [askConfirm, confirmNode] = useConfirmDialog();
+
+  const refresh = useCallback(async () => {
+    const data = await api.getItinerary();
+    setMeta(data.meta || { title: "", anchor_date: null });
+    setDays(data.days || []);
+    return data;
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    refresh()
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [refresh]);
+
+  useEffect(() => {
+    setVisible(ITINERARY_PAGE);
+  }, [query, days.length]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return days;
+    return days.filter((d) => {
+      const blob = [d.day_number, d.title, d.base, d.stay_label, d.hub, d.notes, ...(d.stops || []).map((s) => s.name)]
+        .join(" ")
+        .toLowerCase();
+      return blob.includes(q);
+    });
+  }, [days, query]);
+
+  const shown = filtered.slice(0, visible);
+
+  const saveMeta = async (patch) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await api.putItineraryMeta(patch);
+      setMeta(next);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onImportFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const ok = await askConfirm({
+      title: "Reemplazar itinerario",
+      message: "Esto reemplaza TODO el itinerario actual por el contenido del archivo. ¿Continuar?",
+      confirmLabel: "Importar y reemplazar",
+      danger: true,
+    });
+    if (!ok) return;
+    setImporting(true);
+    setImportProgress({
+      percent: 0,
+      message: "Leyendo el archivo…",
+      detail: file.name,
+      phase: "read",
+    });
+    setError(null);
+    setWarnings([]);
+    try {
+      const markdown = await file.text();
+      setImportProgress({
+        percent: 2,
+        message: "Archivo listo · enviando a la AI…",
+        detail: `${Math.round(markdown.length / 1024)} KB`,
+        phase: "upload",
+      });
+      const res = await api.importItineraryMdStream(markdown, file.name, (p) => {
+        setImportProgress({
+          percent: Math.min(99, Number(p.percent) || 0),
+          message: p.message || "Importando…",
+          detail: p.detail || "",
+          phase: p.phase || "progress",
+          current: p.current,
+          total: p.total,
+        });
+      });
+      setMeta(res.itinerary.meta);
+      setDays(res.itinerary.days || []);
+      setWarnings(res.warnings || []);
+      setImportProgress({
+        percent: 100,
+        message: "Listo",
+        detail: `${res.itinerary.days?.length || 0} días importados`,
+        phase: "done",
+      });
+      await new Promise((r) => setTimeout(r, 700));
+    } catch (err) {
+      setError(err.message || "Error al importar");
+      setImportProgress(null);
+    } finally {
+      setImporting(false);
+      setImportProgress(null);
+    }
+  };
+
+  const onExport = async () => {
+    setError(null);
+    try {
+      const md = await api.exportItineraryMd();
+      const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${(meta.title || "nihon-itinerario").replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "nihon-itinerario"}.md`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const openCreateDay = () => {
+    const nextNum = days.reduce((m, d) => Math.max(m, d.day_number), 0) + 1;
+    setDaySheet({
+      mode: "create",
+      values: { day_number: String(nextNum), title: "", base: "", stay_label: "", hub: "", notes: "" },
+    });
+  };
+
+  const openEditDay = (d) => {
+    setDaySheet({
+      mode: "edit",
+      id: d.id,
+      values: {
+        day_number: String(d.day_number),
+        title: d.title || "",
+        base: d.base || "",
+        stay_label: d.stay_label || "",
+        hub: d.hub || "",
+        notes: d.notes || "",
+      },
+      stops: d.stops || [],
+    });
+  };
+
+  const saveDaySheet = async () => {
+    if (!daySheet) return;
+    const v = daySheet.values;
+    const day_number = Number(v.day_number);
+    if (!Number.isInteger(day_number) || day_number < 1) {
+      setError("El número de día debe ser un entero ≥ 1");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const body = {
+        day_number,
+        title: v.title,
+        base: v.base,
+        stay_label: v.stay_label,
+        hub: v.hub,
+        notes: v.notes,
+      };
+      if (daySheet.mode === "create") {
+        await api.createItineraryDay(body);
+      } else {
+        await api.patchItineraryDay(daySheet.id, body);
+      }
+      await refresh();
+      setDaySheet(null);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteDay = async (d) => {
+    const ok = await askConfirm({
+      title: `Eliminar día ${d.day_number}`,
+      message: `¿Eliminar el Día ${d.day_number}${d.title ? ` — ${d.title}` : ""}? Esta acción no se puede deshacer.`,
+      confirmLabel: "Eliminar",
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.deleteItineraryDay(d.id);
+      await refresh();
+      if (daySheet?.id === d.id) setDaySheet(null);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveStopSheet = async () => {
+    if (!stopSheet) return;
+    const name = (stopSheet.values.name || "").trim();
+    if (!name) {
+      setError("La parada necesita un nombre");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      if (stopSheet.mode === "create") {
+        await api.createItineraryStop(stopSheet.dayId, stopSheet.values);
+      } else {
+        await api.patchItineraryStop(stopSheet.id, stopSheet.values);
+      }
+      const data = await refresh();
+      if (daySheet?.id) {
+        const updated = (data.days || []).find((x) => x.id === daySheet.id);
+        if (updated) setDaySheet((s) => (s ? { ...s, stops: updated.stops } : s));
+      }
+      setStopSheet(null);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const moveStop = async (dayId, stop, dir) => {
+    const day = days.find((d) => d.id === dayId);
+    if (!day) return;
+    const list = [...(day.stops || [])].sort((a, b) => a.sort_order - b.sort_order);
+    const idx = list.findIndex((s) => s.id === stop.id);
+    const j = idx + dir;
+    if (idx < 0 || j < 0 || j >= list.length) return;
+    setBusy(true);
+    try {
+      await api.patchItineraryStop(list[idx].id, { sort_order: list[j].sort_order });
+      await api.patchItineraryStop(list[j].id, { sort_order: list[idx].sort_order });
+      const data = await refresh();
+      if (daySheet?.id === dayId) {
+        const updated = (data.days || []).find((x) => x.id === dayId);
+        if (updated) setDaySheet((s) => (s ? { ...s, stops: updated.stops } : s));
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteStop = async (stop) => {
+    const ok = await askConfirm({
+      title: "Eliminar parada",
+      message: `¿Eliminar la parada “${stop.name}”?`,
+      confirmLabel: "Eliminar",
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await api.deleteItineraryStop(stop.id);
+      const data = await refresh();
+      if (daySheet?.id) {
+        const updated = (data.days || []).find((x) => x.id === daySheet.id);
+        if (updated) setDaySheet((s) => (s ? { ...s, stops: updated.stops } : s));
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading) {
+    return <Empty text="Cargando itinerario…" />;
+  }
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-        {[["docs", "Documentación"], ["flights", "Vuelos"], ["stays", "Alojamiento"], ["bookings", "Reservas"]].map(([id, l]) => (
-          <button key={id} type="button" onClick={() => setSection(id)} style={{ ...S.chip, ...(section === id ? S.chipOn : {}) }}>{l}</button>
-        ))}
-      </div>
-
-      {section === "docs" && (
-        <PlanList
-          title="Checklist de documentación"
-          items={logistics.docs}
-          fields={[["label", "Ítem de documentación", "text"]]}
-          primaryKey="label"
-          pageSize={PLAN_PAGE.docs}
-          defaultFilter="pending"
-          dateKey={null}
-          searchKeys={["label"]}
-          onChange={(items) => upd({ docs: items })}
+      {confirmNode}
+      <Card>
+        <div style={S.label}>Itinerario</div>
+        <input
+          style={S.input}
+          placeholder="Título del viaje"
+          value={meta.title || ""}
+          disabled={busy || importing}
+          onChange={(e) => setMeta((m) => ({ ...m, title: e.target.value }))}
+          onBlur={() => saveMeta({ title: meta.title || "" })}
         />
+        <div style={{ fontSize: 11, color: C.onSurfaceVariant, marginBottom: 4 }}>Fecha ancla (Día 1) — opcional</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+          <input
+            style={{ ...S.input, flex: 1, marginBottom: 0 }}
+            type="date"
+            value={meta.anchor_date || ""}
+            disabled={busy || importing}
+            onChange={(e) => {
+              const v = e.target.value || null;
+              setMeta((m) => ({ ...m, anchor_date: v }));
+              saveMeta({ anchor_date: v });
+            }}
+          />
+          {meta.anchor_date && (
+            <button
+              type="button"
+              style={{ ...S.secondary, marginTop: 0 }}
+              disabled={busy}
+              onClick={() => {
+                setMeta((m) => ({ ...m, anchor_date: null }));
+                saveMeta({ anchor_date: null });
+              }}
+            >
+              Quitar
+            </button>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button type="button" style={S.secondary} disabled={importing || busy} onClick={() => importRef.current?.click()}>
+            {importing ? "Importando…" : "Importar .md"}
+          </button>
+          <input ref={importRef} type="file" accept=".md,text/markdown,text/plain" style={{ display: "none" }} onChange={onImportFile} />
+          <button type="button" style={S.secondary} disabled={importing || busy} onClick={onExport}>Exportar .md</button>
+          <button type="button" style={{ ...S.primary, width: "auto", padding: "0 16px", marginTop: 0 }} disabled={importing || busy} onClick={openCreateDay}>
+            + Día
+          </button>
+        </div>
+        {importProgress && <ImportProgressOverlay progress={importProgress} />}
+        {warnings.length > 0 && (
+          <div style={{ ...S.warn, marginTop: 10 }}>
+            Import OK con avisos: {warnings.slice(0, 5).join(" · ")}
+            {warnings.length > 5 ? ` (+${warnings.length - 5})` : ""}
+          </div>
+        )}
+        {error && <div style={{ ...S.warn, marginTop: 10 }}>{error}</div>}
+      </Card>
+
+      {days.length === 0 && !importing && (
+        <Card>
+          <Empty text="Todavía no hay días. Importá un plan .md (ej. docs/plan.example.md) o creá el Día 1." />
+          <button type="button" style={S.primary} onClick={() => importRef.current?.click()}>Importar plan .md</button>
+          <button type="button" style={{ ...S.secondary, width: "100%", marginTop: 8 }} onClick={openCreateDay}>Crear día 1</button>
+        </Card>
       )}
 
-      {section === "flights" && (
-        <PlanList
-          title="Vuelos y traslados internos"
-          items={logistics.flights}
-          fields={[
-            ["route", "Ruta (EZE → NRT)", "text"],
-            ["datetime", "Fecha y hora de salida", "datetime"],
-            ["code", "Aerolínea / código", "text"],
-          ]}
-          primaryKey="route"
-          pageSize={PLAN_PAGE.flights}
-          dateKey="datetime"
-          searchKeys={["route", "code"]}
-          onChange={(items) => upd({ flights: items })}
-        />
+      {days.length > 0 && (
+        <Card>
+          <input
+            style={{ ...S.input, marginBottom: 8 }}
+            type="search"
+            placeholder="Buscar día, base, parada…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <div style={{ fontSize: 11, color: C.onSurfaceVariant, marginBottom: 8 }}>
+            Mostrando {shown.length} de {filtered.length}
+            {filtered.length !== days.length ? ` · filtrados de ${days.length}` : ""}
+          </div>
+          <div style={{ maxHeight: "min(55vh, 480px)", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+            {filtered.length === 0 && <Empty text="Sin resultados para esta búsqueda." />}
+            {shown.map((d) => {
+              const cal = calendarForDay(meta.anchor_date, d.day_number);
+              return (
+                <div
+                  key={d.id}
+                  style={{
+                    padding: "12px 8px",
+                    borderBottom: `1px solid ${C.outlineVariant}`,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 8,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => openEditDay(d)}
+                    style={{
+                      flex: 1,
+                      textAlign: "left",
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      color: C.onSurface,
+                      minWidth: 0,
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>
+                      Día {d.day_number}
+                      {cal ? ` · ${cal}` : ""}
+                      {d.title ? ` — ${d.title}` : ""}
+                    </div>
+                    <Meta>
+                      {[d.base && `Base ${d.base}`, d.stay_label && `Dormir: ${d.stay_label}`, d.hub && `Hub ${d.hub}`, `${(d.stops || []).length} paradas`]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </Meta>
+                  </button>
+                  <button type="button" style={{ ...S.ghost, minWidth: 40 }} title="Eliminar día" onClick={() => deleteDay(d)}>✕</button>
+                </div>
+              );
+            })}
+            {visible < filtered.length && (
+              <button type="button" style={{ ...S.secondary, width: "100%", marginTop: 10 }} onClick={() => setVisible((n) => n + ITINERARY_PAGE)}>
+                Cargar más ({filtered.length - visible} restantes)
+              </button>
+            )}
+          </div>
+        </Card>
       )}
 
-      {section === "stays" && (
-        <PlanList
-          title="Alojamiento por ciudad"
-          items={logistics.stays}
-          fields={[
-            ["city", "Ciudad (Tokyo, Kyoto…)", "text"],
-            ["name", "Hotel / Airbnb", "text"],
-            ["checkin", "Check-in", "datetime"],
-            ["checkout", "Check-out", "datetime"],
-          ]}
-          primaryKey="name"
-          pageSize={PLAN_PAGE.stays}
-          dateKey="checkin"
-          searchKeys={["city", "name"]}
-          onChange={(items) => upd({ stays: items })}
-          validate={(form) => {
-            if (form.checkin && form.checkout && form.checkout < form.checkin) {
-              return "El check-out no puede ser anterior al check-in";
+      {daySheet && (
+        <ItineraryDaySheet
+          sheet={daySheet}
+          busy={busy}
+          anchorDate={meta.anchor_date}
+          onChangeValues={(values) => setDaySheet((s) => (s ? { ...s, values } : s))}
+          onSave={saveDaySheet}
+          onClose={() => !busy && setDaySheet(null)}
+          onAddStop={() =>
+            setStopSheet({
+              mode: "create",
+              dayId: daySheet.id,
+              values: { name: "", detail: "", how_to_get: "", est_duration: "", notes: "", kind: "stop" },
+            })
+          }
+          onEditStop={(stop) =>
+            setStopSheet({
+              mode: "edit",
+              id: stop.id,
+              dayId: daySheet.id,
+              values: {
+                name: stop.name || "",
+                detail: stop.detail || "",
+                how_to_get: stop.how_to_get || "",
+                est_duration: stop.est_duration || "",
+                notes: stop.notes || "",
+                kind: stop.kind || "stop",
+                done: !!stop.done,
+              },
+            })
+          }
+          onMoveStop={(stop, dir) => moveStop(daySheet.id, stop, dir)}
+          onDeleteStop={deleteStop}
+          onToggleStopDone={async (stop) => {
+            setBusy(true);
+            try {
+              await api.patchItineraryStop(stop.id, { done: !stop.done });
+              const data = await refresh();
+              const updated = (data.days || []).find((x) => x.id === daySheet.id);
+              if (updated) setDaySheet((s) => (s ? { ...s, stops: updated.stops } : s));
+            } catch (e) {
+              setError(e.message);
+            } finally {
+              setBusy(false);
             }
-            return null;
           }}
         />
       )}
 
-      {section === "bookings" && (
-        <PlanList
-          title="Actividades y reservas"
-          items={logistics.bookings}
-          fields={[
-            ["name", "Actividad (Ghibli, TeamLab, Daikoku tour…)", "text"],
-            ["datetime", "Fecha y hora", "datetime"],
-          ]}
-          primaryKey="name"
-          pageSize={PLAN_PAGE.bookings}
-          dateKey="datetime"
-          searchKeys={["name"]}
-          onChange={(items) => upd({ bookings: items })}
+      {stopSheet && (
+        <ItineraryStopSheet
+          sheet={stopSheet}
+          busy={busy}
+          onChange={(values) => setStopSheet((s) => (s ? { ...s, values } : s))}
+          onSave={saveStopSheet}
+          onClose={() => !busy && setStopSheet(null)}
         />
       )}
+    </div>
+  );
+}
+
+function ImportProgressOverlay({ progress }) {
+  const pct = Math.max(0, Math.min(100, Number(progress.percent) || 0));
+  const hasSteps = progress.total > 0 && progress.current > 0;
+  const tips = useMemo(
+    () => [
+      "Los planes largos se convierten de a dos días para no truncar la AI.",
+      "Podés completar la fecha ancla después del import.",
+      "El export .md es determinístico: no vuelve a pasar por la AI.",
+    ],
+    [],
+  );
+  const tip = tips[Math.floor(pct / 34) % tips.length];
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  return (
+    <div
+      role="alertdialog"
+      aria-busy="true"
+      aria-live="polite"
+      aria-label="Progreso de importación"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 80,
+        background: "rgba(0,0,0,0.55)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        style={{
+          width: "min(100%, 420px)",
+          background: C.surfaceContainer,
+          border: `1px solid ${C.outlineVariant}`,
+          borderRadius: 16,
+          padding: "20px 18px 18px",
+          boxShadow: C.elevation2,
+        }}
+      >
+        <div style={{ fontSize: 11, letterSpacing: 1.2, color: C.onSurfaceVariant, textTransform: "uppercase", marginBottom: 6 }}>
+          Importando plan
+        </div>
+        <div style={{ fontSize: 17, fontWeight: 800, color: C.onSurface, marginBottom: 6, lineHeight: 1.3 }}>
+          {progress.message}
+        </div>
+        {progress.detail ? (
+          <div style={{ fontSize: 13, color: C.onSurfaceVariant, marginBottom: 14, lineHeight: 1.45 }}>
+            {progress.detail}
+          </div>
+        ) : (
+          <div style={{ height: 14, marginBottom: 14 }} />
+        )}
+
+        <div
+          style={{
+            height: 10,
+            borderRadius: 999,
+            background: C.surfaceContainerHigh,
+            overflow: "hidden",
+            marginBottom: 8,
+          }}
+          role="progressbar"
+          aria-valuenow={Math.round(pct)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
+          <div
+            style={{
+              height: "100%",
+              width: `${pct}%`,
+              background: C.primary,
+              borderRadius: 999,
+              transition: "width 0.35s ease",
+            }}
+          />
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.onSurfaceVariant, marginBottom: 12 }}>
+          <span>{hasSteps ? `Bloque ${progress.current} de ${progress.total}` : progress.phase || "en curso"}</span>
+          <span style={{ fontWeight: 700, color: C.onSurface }}>{Math.round(pct)}%</span>
+        </div>
+        <div style={{ fontSize: 12, color: C.onSurfaceVariant, lineHeight: 1.45, borderTop: `1px solid ${C.outlineVariant}`, paddingTop: 12 }}>
+          {tip}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ItineraryDaySheet({
+  sheet,
+  busy,
+  anchorDate,
+  onChangeValues,
+  onSave,
+  onClose,
+  onAddStop,
+  onEditStop,
+  onMoveStop,
+  onDeleteStop,
+  onToggleStopDone,
+}) {
+  const v = sheet.values;
+  const cal = calendarForDay(anchorDate, Number(v.day_number));
+  const isEdit = sheet.mode === "edit";
+  const stops = [...(sheet.stops || [])].sort((a, b) => a.sort_order - b.sort_order);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => { if (e.key === "Escape" && !busy) onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [busy, onClose]);
+
+  return (
+    <div
+      role="presentation"
+      onClick={() => !busy && onClose()}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        background: "rgba(0,0,0,0.45)",
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 520,
+          maxHeight: "90vh",
+          display: "flex",
+          flexDirection: "column",
+          background: C.surfaceContainer,
+          borderRadius: "16px 16px 0 0",
+          boxShadow: C.elevation2,
+          paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${C.outlineVariant}` }}>
+          <div style={{ fontWeight: 700, fontSize: 16 }}>
+            {isEdit ? `Día ${v.day_number}${cal ? ` · ${cal}` : ""}` : "Nuevo día"}
+          </div>
+          <button type="button" style={S.ghost} onClick={onClose} disabled={busy}>✕</button>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", WebkitOverflowScrolling: "touch" }}>
+          {[
+            ["day_number", "Número de día", "number"],
+            ["title", "Título (ej. Oeste hub Ikebukuro)", "text"],
+            ["base", "Base / ciudad", "text"],
+            ["stay_label", "Dónde dormís", "text"],
+            ["hub", "Hub logístico", "text"],
+          ].map(([k, ph, type]) => (
+            <div key={k}>
+              <div style={{ fontSize: 11, color: C.onSurfaceVariant, margin: "2px 0 4px" }}>{ph}</div>
+              <input
+                style={{ ...S.input, marginBottom: 10 }}
+                type={type}
+                value={v[k] || ""}
+                disabled={busy}
+                onChange={(e) => onChangeValues({ ...v, [k]: e.target.value })}
+              />
+            </div>
+          ))}
+          <div style={{ fontSize: 11, color: C.onSurfaceVariant, margin: "2px 0 4px" }}>Notas del día</div>
+          <textarea
+            style={{ ...S.input, minHeight: 80, resize: "vertical", marginBottom: 14 }}
+            value={v.notes || ""}
+            disabled={busy}
+            onChange={(e) => onChangeValues({ ...v, notes: e.target.value })}
+          />
+
+          {isEdit && (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>Paradas</div>
+                <button type="button" style={{ ...S.secondary, minHeight: 36, padding: "6px 10px" }} disabled={busy} onClick={onAddStop}>+ Parada</button>
+              </div>
+              {stops.length === 0 && <Empty text="Sin paradas. Agregá la primera." />}
+              {stops.map((stop, i) => (
+                <div key={stop.id} style={{ borderBottom: `1px solid ${C.outlineVariant}`, padding: "10px 0", display: "flex", gap: 6 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, textDecoration: stop.done ? "line-through" : "none" }}>
+                      {stop.kind !== "stop" ? `[${stop.kind}] ` : `${i + 1}. `}{stop.name}
+                    </div>
+                    <Meta>{[stop.how_to_get, stop.est_duration, stop.detail].filter(Boolean).join(" · ")}</Meta>
+                  </div>
+                  <button type="button" style={{ ...S.ghost, minWidth: 36 }} disabled={busy || i === 0} onClick={() => onMoveStop(stop, -1)}>↑</button>
+                  <button type="button" style={{ ...S.ghost, minWidth: 36 }} disabled={busy || i === stops.length - 1} onClick={() => onMoveStop(stop, 1)}>↓</button>
+                  <button type="button" style={{ ...S.ghost, minWidth: 36 }} disabled={busy} onClick={() => onToggleStopDone(stop)}>{stop.done ? "✓" : "○"}</button>
+                  <button type="button" style={{ ...S.ghost, minWidth: 36 }} disabled={busy} onClick={() => onEditStop(stop)}>✎</button>
+                  <button type="button" style={{ ...S.ghost, minWidth: 36 }} disabled={busy} onClick={() => onDeleteStop(stop)}>✕</button>
+                </div>
+              ))}
+            </>
+          )}
+          {!isEdit && (
+            <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginBottom: 8 }}>
+              Guardá el día para poder agregar paradas.
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 8, padding: "10px 16px 4px", borderTop: `1px solid ${C.outlineVariant}` }}>
+          <button type="button" style={{ ...S.secondary, flex: 1, marginTop: 0 }} disabled={busy} onClick={onClose}>Cancelar</button>
+          <button type="button" style={{ ...S.primary, flex: 1.4, marginTop: 0 }} disabled={busy} onClick={onSave}>
+            {busy ? "Guardando…" : "Guardar día"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ItineraryStopSheet({ sheet, busy, onChange, onSave, onClose }) {
+  const v = sheet.values;
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape" && !busy) onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, onClose]);
+
+  return (
+    <div
+      role="presentation"
+      onClick={() => !busy && onClose()}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 60,
+        background: "rgba(0,0,0,0.5)",
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 520,
+          maxHeight: "85vh",
+          overflowY: "auto",
+          background: C.surfaceContainer,
+          borderRadius: "16px 16px 0 0",
+          padding: "16px 16px max(16px, env(safe-area-inset-bottom))",
+          boxShadow: C.elevation2,
+        }}
+      >
+        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>
+          {sheet.mode === "edit" ? "Editar parada" : "Nueva parada"}
+        </div>
+        {[
+          ["name", "Nombre"],
+          ["detail", "Detalle"],
+          ["how_to_get", "Cómo llegar"],
+          ["est_duration", "Est. en sitio"],
+          ["notes", "Notas / reserva"],
+        ].map(([k, ph]) => (
+          <div key={k}>
+            <div style={{ fontSize: 11, color: C.onSurfaceVariant, marginBottom: 4 }}>{ph}</div>
+            <input
+              style={{ ...S.input, marginBottom: 10 }}
+              value={v[k] || ""}
+              disabled={busy}
+              onChange={(e) => onChange({ ...v, [k]: e.target.value })}
+            />
+          </div>
+        ))}
+        <div style={{ fontSize: 11, color: C.onSurfaceVariant, marginBottom: 4 }}>Tipo</div>
+        <select
+          style={{ ...S.input, marginBottom: 14 }}
+          value={v.kind || "stop"}
+          disabled={busy}
+          onChange={(e) => onChange({ ...v, kind: e.target.value })}
+        >
+          <option value="stop">Parada</option>
+          <option value="hub_out">Salida hub</option>
+          <option value="hub_back">Retorno hub</option>
+        </select>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="button" style={{ ...S.secondary, flex: 1, marginTop: 0 }} disabled={busy} onClick={onClose}>Cancelar</button>
+          <button type="button" style={{ ...S.primary, flex: 1.4, marginTop: 0 }} disabled={busy} onClick={onSave}>
+            {busy ? "Guardando…" : "Guardar"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -667,6 +1481,7 @@ function PlanList({
   const [visible, setVisible] = useState(pageSize);
   const [sheet, setSheet] = useState(null); // null | { mode: 'create'|'edit', id?, values }
   const [sheetError, setSheetError] = useState(null);
+  const [askConfirm, confirmNode] = useConfirmDialog();
 
   useEffect(() => {
     setVisible(pageSize);
@@ -735,13 +1550,20 @@ function PlanList({
     closeSheet();
   };
 
-  const removeItem = (id) => {
-    if (!window.confirm("¿Eliminar este ítem?")) return;
+  const removeItem = async (id) => {
+    const ok = await askConfirm({
+      title: "Eliminar ítem",
+      message: "¿Eliminar este ítem? Esta acción no se puede deshacer.",
+      confirmLabel: "Eliminar",
+      danger: true,
+    });
+    if (!ok) return;
     onChange(items.filter((x) => x.id !== id));
   };
 
   return (
     <Card>
+      {confirmNode}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <div style={{ ...S.label, marginBottom: 0 }}>{title}</div>
         <button type="button" style={{ ...S.secondary, minHeight: 40, padding: "6px 12px" }} onClick={openCreate}>+ Nuevo</button>
@@ -901,6 +1723,7 @@ function Asistente({ sessions, setSessions }) {
   const [nameSheet, setNameSheet] = useState(null);
   const bottomRef = useRef(null);
   const importRef = useRef(null);
+  const [askConfirm, confirmNode] = useConfirmDialog();
 
   const active = sessions.find((s) => s.id === activeId) || null;
   const currentSession =
@@ -992,7 +1815,13 @@ function Asistente({ sessions, setSessions }) {
 
   const resetSession = async () => {
     if (!currentSession) return;
-    if (!window.confirm(`¿Limpiar la memoria de “${currentSession.name}”?\n\nSe borrarán todos sus mensajes y el resumen de contexto. La sesión seguirá existiendo.`)) return;
+    const ok = await askConfirm({
+      title: "Limpiar memoria",
+      message: `¿Limpiar la memoria de “${currentSession.name}”?\n\nSe borrarán todos sus mensajes y el resumen de contexto. La sesión seguirá existiendo.`,
+      confirmLabel: "Limpiar",
+      danger: true,
+    });
+    if (!ok) return;
     setSessionBusy(true);
     setError(null);
     try {
@@ -1008,7 +1837,13 @@ function Asistente({ sessions, setSessions }) {
 
   const deleteCurrentSession = async () => {
     if (mode !== "planificar" || !currentSession || currentSession.mode !== "planificar") return;
-    if (!window.confirm(`¿Eliminar “${currentSession.name}”?\n\nEsta acción borra la sesión y todos sus mensajes de forma permanente.`)) return;
+    const ok = await askConfirm({
+      title: "Eliminar sesión",
+      message: `¿Eliminar “${currentSession.name}”?\n\nEsta acción borra la sesión y todos sus mensajes de forma permanente.`,
+      confirmLabel: "Eliminar",
+      danger: true,
+    });
+    if (!ok) return;
     setSessionBusy(true);
     setError(null);
     try {
@@ -1116,6 +1951,7 @@ function Asistente({ sessions, setSessions }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 190px)" }}>
+      {confirmNode}
       <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
         <button style={{ ...S.chip, ...(mode === "planificar" ? S.chipOn : {}) }} onClick={() => setMode("planificar")}>Planificar</button>
         <button style={{ ...S.chip, ...(mode === "consultar" ? S.chipOn : {}) }} onClick={() => setMode("consultar")}>Consultar plan</button>

@@ -14,6 +14,7 @@ import { seedDefaultDocs, setRates, getRates } from "./helpers.mjs";
 import { authRoutes } from "./routes/auth.mjs";
 import { expensesRoutes } from "./routes/expenses.mjs";
 import { planRoutes } from "./routes/plan.mjs";
+import { itineraryRoutes } from "./routes/itinerary.mjs";
 import { ratesRoutes } from "./routes/rates.mjs";
 import { sessionsRoutes } from "./routes/sessions.mjs";
 import { importRoutes } from "./routes/import.mjs";
@@ -77,6 +78,7 @@ async function main() {
   await authRoutes(app, { config });
   await expensesRoutes(app, { db });
   await planRoutes(app, { db });
+  await itineraryRoutes(app, { db, ai, config });
   await ratesRoutes(app, { db, config });
   await sessionsRoutes(app, { db, ai, config });
   await importRoutes(app, { db });
