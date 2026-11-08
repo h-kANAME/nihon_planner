@@ -1,0 +1,35 @@
+---
+description: Ubicaciones y mapa del itinerario — contrato de docs/req_mapa.md
+globs:
+  - docs/req_mapa.md
+  - server/migrations/**
+  - server/itinerary/**
+  - server/routes/itinerary.mjs
+  - server/routes/expenses.mjs
+  - server/routes/import.mjs
+  - shared/**
+  - src/lib/locations.js
+  - src/lib/apiClient.js
+  - src/components/Location*.jsx
+  - src/components/DayMap.jsx
+alwaysApply: false
+---
+
+# Ubicaciones del itinerario
+
+`docs/req_mapa.md` (v1.1) es el contrato. Si el código y el documento difieren, gana el documento; si el documento está mal, se corrige el documento en el mismo cambio. Nunca se implementa "a ojo".
+
+## Invariantes
+
+1. Las coordenadas viven en `itinerary_stops` y en `itinerary_days` (`stay_*`). No hay tabla `places`, ni `@slug`, ni apéndice de lugares.
+2. El servidor nunca acepta `lat`/`lng` del cliente: parsea `raw_input` con `shared/location-parse.mjs`.
+3. La AI no lee ni emite coordenadas. Los datos determinísticos (`location`, `done`) se aplican **después** de `validateItineraryJson`, dentro de `replaceItinerary`.
+4. Todo import destructivo: snapshot `VACUUM INTO` antes (directorio creado, ruta derivada de `DB_PATH`) y guarda `409` contando celdas importables, no cabeceras.
+5. Export e import son simétricos: `lat,lng` · `~lat,lng` (aproximada) · `—` · `stay` · vacío. Cualquier token nuevo rompe el round-trip.
+6. `location_mode` de los hubs se deriva al insertar; el backfill de la migración solo cubre datos previos.
+7. Colores del mapa desde tokens de `brand_app` en runtime; nunca hardcodeados.
+8. La navegación (M0) funciona con texto: no exige ubicaciones validadas.
+
+## Verificación
+
+`docker compose --profile dev exec app-dev npm test` (o `run --rm app-dev` si el stack no está arriba).
