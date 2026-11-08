@@ -6,6 +6,7 @@ import Login from "./Login.jsx";
 import Markdown from "./components/Markdown.jsx";
 import { useConfirmDialog } from "./components/ConfirmDialog.jsx";
 import PlanPreview from "./components/PlanPreview.jsx";
+import { useIsDesktop } from "./lib/viewport";
 
 /* ============================================================
    NIHON PLANNER — Viaje a Japón (20 días, pareja, ARS/USD/JPY)
@@ -101,13 +102,39 @@ function makeConverter(rates) {
 }
 
 /* ============================================================ */
+const NAV = [
+  ["resumen", "概", "Resumen"],
+  ["gastos", "費", "Gastos"],
+  ["conversor", "両", "Conversor"],
+  ["plan", "旅", "Plan"],
+  ["ai", "助", "AI"],
+];
+
+function NavItem({ id, kanji, label, active, onClick, isDesktop }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(id)}
+      aria-current={active ? "page" : undefined}
+      style={{ ...(isDesktop ? S.railBtn : S.navBtn), ...(active ? (isDesktop ? S.railBtnActive : S.navBtnActive) : {}) }}
+    >
+      {active && <span style={isDesktop ? S.railIndicator : S.navIndicator} aria-hidden />}
+      <span style={{ fontSize: 17, lineHeight: 1, fontWeight: active ? 700 : 500 }}>{kanji}</span>
+      <span style={{ fontSize: isDesktop ? 13 : 11, letterSpacing: 0.3, fontWeight: active ? 600 : 400 }}>{label}</span>
+    </button>
+  );
+}
+
 export default function App() {
+  const isDesktop = useIsDesktop();
   const [themeMode, setThemeMode] = useState(resolveInitialMode);
-  applyTheme(themeMode);
+  applyTheme(themeMode, isDesktop);
+  const toggleTheme = () => setThemeMode((m) => (m === "light" ? "dark" : "light"));
 
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [tab, setTab] = useState("resumen");
+  const activeLabel = NAV.find(([id]) => id === tab)?.[2] ?? "";
   const [ready, setReady] = useState(false);
   const [focusDayNumber, setFocusDayNumber] = useState(null);
 
@@ -116,9 +143,9 @@ export default function App() {
   const [sessions, setSessions] = useState([]);
 
   useEffect(() => {
-    applyTheme(themeMode);
+    applyTheme(themeMode, isDesktop);
     persistMode(themeMode);
-  }, [themeMode]);
+  }, [themeMode, isDesktop]);
 
   useEffect(() => {
     (async () => {
@@ -225,83 +252,106 @@ export default function App() {
 
   return (
     <div style={S.app}>
-      <header style={S.header}>
-        <div>
-          <div style={S.eyebrow}>日本 · 20 días · dos viajeros</div>
-          <h1 style={S.title}>Nihon Planner</h1>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <button
-            type="button"
-            style={S.ghost}
-            onClick={() => setThemeMode((m) => (m === "light" ? "dark" : "light"))}
-            title={themeMode === "light" ? "Tema oscuro" : "Tema claro"}
-            aria-label={themeMode === "light" ? "Cambiar a tema oscuro" : "Cambiar a tema claro"}
-          >
-            {themeMode === "light" ? "暗" : "明"}
-          </button>
-          <button
-            type="button"
-            style={S.ghost}
-            onClick={logout}
-            title={`Cerrar sesión (${user.email})`}
-            aria-label="Cerrar sesión"
-          >
-            <PowerIcon />
-          </button>
-          <div style={S.stamp} title="Hinomaru" aria-hidden>
-            <span style={S.hinomaru} />
+      {isDesktop && (
+        <aside style={S.rail}>
+          <div style={S.railBrand}>
+            <div style={S.stamp} title="Hinomaru" aria-hidden>
+              <span style={S.hinomaru} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 700, whiteSpace: "nowrap" }}>Nihon Planner</div>
           </div>
-        </div>
-      </header>
-
-      <main style={S.main}>
-        {tab === "resumen" && (
-          <Resumen
-            totals={totals}
-            expenses={expenses}
-            rates={rates}
-            onOpenPlanDay={openPlanDay}
-            onOpenGastos={() => setTab("gastos")}
-          />
-        )}
-        {tab === "gastos" && <Gastos expenses={expenses} setExpenses={setExpenses} convert={convert} totals={totals} />}
-        {tab === "conversor" && (
-          <Conversor rates={rates} setRates={setRates} convert={convert} fetchRates={() => fetchRates()} rateStatus={rateStatus} />
-        )}
-        {tab === "plan" && (
-          <Plan
-            focusDayNumber={focusDayNumber}
-            onFocusConsumed={() => setFocusDayNumber(null)}
-          />
-        )}
-        {tab === "ai" && <Asistente sessions={sessions} setSessions={setSessions} />}
-      </main>
-
-      <nav style={S.nav} aria-label="Principal">
-        {[
-          ["resumen", "概", "Resumen"],
-          ["gastos", "費", "Gastos"],
-          ["conversor", "両", "Conversor"],
-          ["plan", "旅", "Plan"],
-          ["ai", "助", "AI"],
-        ].map(([id, kanji, label]) => {
-          const active = tab === id;
-          return (
+          <nav aria-label="Principal" style={S.railNav}>
+            {NAV.map(([id, kanji, label]) => (
+              <NavItem key={id} id={id} kanji={kanji} label={label} active={tab === id} onClick={setTab} isDesktop />
+            ))}
+          </nav>
+          <div style={S.railFooter}>
             <button
-              key={id}
               type="button"
-              onClick={() => setTab(id)}
-              aria-current={active ? "page" : undefined}
-              style={{ ...S.navBtn, ...(active ? S.navBtnActive : {}) }}
+              style={S.ghost}
+              onClick={toggleTheme}
+              title={themeMode === "light" ? "Tema oscuro" : "Tema claro"}
+              aria-label={themeMode === "light" ? "Cambiar a tema oscuro" : "Cambiar a tema claro"}
             >
-              {active && <span style={S.navIndicator} aria-hidden />}
-              <span style={{ fontSize: 17, lineHeight: 1, fontWeight: active ? 700 : 500 }}>{kanji}</span>
-              <span style={{ fontSize: 11, letterSpacing: 0.3, fontWeight: active ? 600 : 400 }}>{label}</span>
+              {themeMode === "light" ? "暗" : "明"}
             </button>
-          );
-        })}
-      </nav>
+            <button
+              type="button"
+              style={S.ghost}
+              onClick={logout}
+              title={`Cerrar sesión (${user.email})`}
+              aria-label="Cerrar sesión"
+            >
+              <PowerIcon />
+            </button>
+          </div>
+        </aside>
+      )}
+
+      <div style={S.content}>
+        <header style={S.header}>
+          <div>
+            <div style={S.eyebrow}>日本 · 20 días · dos viajeros</div>
+            <h1 style={S.title}>{isDesktop ? activeLabel : "Nihon Planner"}</h1>
+          </div>
+          {!isDesktop && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <button
+                type="button"
+                style={S.ghost}
+                onClick={toggleTheme}
+                title={themeMode === "light" ? "Tema oscuro" : "Tema claro"}
+                aria-label={themeMode === "light" ? "Cambiar a tema oscuro" : "Cambiar a tema claro"}
+              >
+                {themeMode === "light" ? "暗" : "明"}
+              </button>
+              <button
+                type="button"
+                style={S.ghost}
+                onClick={logout}
+                title={`Cerrar sesión (${user.email})`}
+                aria-label="Cerrar sesión"
+              >
+                <PowerIcon />
+              </button>
+              <div style={S.stamp} title="Hinomaru" aria-hidden>
+                <span style={S.hinomaru} />
+              </div>
+            </div>
+          )}
+        </header>
+
+        <main style={S.main}>
+          {tab === "resumen" && (
+            <Resumen
+              totals={totals}
+              expenses={expenses}
+              rates={rates}
+              onOpenPlanDay={openPlanDay}
+              onOpenGastos={() => setTab("gastos")}
+            />
+          )}
+          {tab === "gastos" && <Gastos expenses={expenses} setExpenses={setExpenses} convert={convert} totals={totals} />}
+          {tab === "conversor" && (
+            <Conversor rates={rates} setRates={setRates} convert={convert} fetchRates={() => fetchRates()} rateStatus={rateStatus} />
+          )}
+          {tab === "plan" && (
+            <Plan
+              focusDayNumber={focusDayNumber}
+              onFocusConsumed={() => setFocusDayNumber(null)}
+            />
+          )}
+          {tab === "ai" && <Asistente sessions={sessions} setSessions={setSessions} />}
+        </main>
+      </div>
+
+      {!isDesktop && (
+        <nav style={S.nav} aria-label="Principal">
+          {NAV.map(([id, kanji, label]) => (
+            <NavItem key={id} id={id} kanji={kanji} label={label} active={tab === id} onClick={setTab} isDesktop={false} />
+          ))}
+        </nav>
+      )}
     </div>
   );
 }
@@ -310,6 +360,7 @@ const ITINERARY_PAGE = 8;
 
 /* ================= RESUMEN ================= */
 function Resumen({ totals, expenses, rates, onOpenPlanDay, onOpenGastos }) {
+  const isDesktop = useIsDesktop();
   const [dash, setDash] = useState(null);
   const [previewDay, setPreviewDay] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -356,8 +407,8 @@ function Resumen({ totals, expenses, rates, onOpenPlanDay, onOpenGastos }) {
   const pendingItems = dash?.pendingItems || [];
 
   return (
-    <div>
-      <Card>
+    <div style={isDesktop ? S.grid : undefined}>
+      <Card style={isDesktop ? S.spanFull : undefined}>
         <div style={S.label}>Total gastado</div>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
           <span style={{ fontSize: 34, fontWeight: 700, color: C.ink }}>{fmt(totals.JPY, "JPY")}</span>
@@ -369,7 +420,7 @@ function Resumen({ totals, expenses, rates, onOpenPlanDay, onOpenGastos }) {
         </div>
       </Card>
 
-      <Card>
+      <Card style={isDesktop ? S.spanFull : undefined}>
         <div style={S.label}>Por categoría (USD)</div>
         {Object.keys(totals.byCat).length === 0 && <Empty text="Todavía no hay montos. Cargá ítems en 費 Gastos." />}
         {CATS.filter((c) => totals.byCat[c.id]).map((c) => {
@@ -476,6 +527,7 @@ function Resumen({ totals, expenses, rates, onOpenPlanDay, onOpenGastos }) {
 }
 
 function ItineraryDayDetailModal({ day, loading, error, anchorDate, onClose, onEditInPlan }) {
+  const isDesktop = useIsDesktop();
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -500,8 +552,9 @@ function ItineraryDayDetailModal({ day, loading, error, anchorDate, onClose, onE
         zIndex: 50,
         background: "rgba(0,0,0,0.45)",
         display: "flex",
-        alignItems: "flex-end",
+        alignItems: isDesktop ? "center" : "flex-end",
         justifyContent: "center",
+        ...(isDesktop ? { padding: 24 } : {}),
       }}
     >
       <div
@@ -511,12 +564,12 @@ function ItineraryDayDetailModal({ day, loading, error, anchorDate, onClose, onE
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%",
-          maxWidth: 520,
+          maxWidth: isDesktop ? "min(100%, 640px)" : 520,
           maxHeight: "88vh",
           display: "flex",
           flexDirection: "column",
           background: C.surfaceContainer,
-          borderRadius: "16px 16px 0 0",
+          borderRadius: isDesktop ? 16 : "16px 16px 0 0",
           boxShadow: C.elevation2,
           paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
         }}
@@ -650,6 +703,7 @@ function buildExpenseItem(form, editingId) {
 }
 
 function Gastos({ expenses, setExpenses, convert }) {
+  const isDesktop = useIsDesktop();
   const [form, setForm] = useState(emptyExpenseForm);
   const [editingId, setEditingId] = useState(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -708,7 +762,7 @@ function Gastos({ expenses, setExpenses, convert }) {
         <div style={{ fontSize: 13, color: C.onSurfaceVariant }}>
           {filtered.length} de {expenses.length} ítem{expenses.length !== 1 ? "s" : ""}
         </div>
-        <button type="button" style={S.primary} onClick={openCreate}>
+        <button type="button" style={{ ...S.primary, ...(isDesktop ? { width: "auto", paddingInline: 20, marginTop: 0 } : null) }} onClick={openCreate}>
           + Agregar
         </button>
       </div>
@@ -751,11 +805,12 @@ function Gastos({ expenses, setExpenses, convert }) {
       </div>
 
       {filtered.length === 0 ? (
-        <Card>
+        <Card style={isDesktop ? S.spanFull : undefined}>
           <Empty text={expenses.length === 0 ? "Sin ítems. Tocá Agregar para cargar el primero." : "Sin ítems en este filtro."} />
         </Card>
       ) : (
-        filtered.map((e) => {
+        <div style={isDesktop ? S.grid : undefined}>
+        {filtered.map((e) => {
           const cat = CATS.find((x) => x.id === e.category);
           const hasAmount = e.amount != null && e.currency;
           const c = hasAmount ? convert(e.amount, e.currency) : null;
@@ -809,7 +864,8 @@ function Gastos({ expenses, setExpenses, convert }) {
               </div>
             </Card>
           );
-        })
+        })}
+        </div>
       )}
 
       {sheetOpen && (
@@ -826,6 +882,7 @@ function Gastos({ expenses, setExpenses, convert }) {
 }
 
 function ExpenseFormSheet({ form, setForm, editingId, onSave, onClose }) {
+  const isDesktop = useIsDesktop();
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -849,8 +906,9 @@ function ExpenseFormSheet({ form, setForm, editingId, onSave, onClose }) {
         zIndex: 50,
         background: "rgba(0,0,0,0.45)",
         display: "flex",
-        alignItems: "flex-end",
+        alignItems: isDesktop ? "center" : "flex-end",
         justifyContent: "center",
+        ...(isDesktop ? { padding: 24 } : {}),
       }}
     >
       <div
@@ -860,12 +918,12 @@ function ExpenseFormSheet({ form, setForm, editingId, onSave, onClose }) {
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%",
-          maxWidth: 520,
+          maxWidth: isDesktop ? "min(100%, 640px)" : 520,
           maxHeight: "90vh",
           display: "flex",
           flexDirection: "column",
           background: C.surfaceContainer,
-          borderRadius: "16px 16px 0 0",
+          borderRadius: isDesktop ? 16 : "16px 16px 0 0",
           boxShadow: C.elevation2,
           paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
         }}
@@ -1022,11 +1080,12 @@ function fromLocalInput(v) {
 
 /* ================= CONVERSOR ================= */
 function Conversor({ rates, setRates, convert, fetchRates, rateStatus }) {
+  const isDesktop = useIsDesktop();
   const [amount, setAmount] = useState("1000");
   const [cur, setCur] = useState("JPY");
   const c = convert(Number(amount) || 0, cur);
   return (
-    <div>
+    <div style={isDesktop ? S.grid : undefined}>
       <Card>
         <div style={S.label}>Convertir</div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -1097,6 +1156,7 @@ function calendarForDay(anchorDate, dayNumber) {
 }
 
 function Plan({ focusDayNumber = null, onFocusConsumed }) {
+  const isDesktop = useIsDesktop();
   const [meta, setMeta] = useState({ title: "", anchor_date: null });
   const [days, setDays] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1411,7 +1471,7 @@ function Plan({ focusDayNumber = null, onFocusConsumed }) {
   }
 
   return (
-    <div>
+    <div style={isDesktop ? S.grid : undefined}>
       {confirmNode}
       <Card>
         <div style={S.label}>Itinerario</div>
@@ -1471,7 +1531,7 @@ function Plan({ focusDayNumber = null, onFocusConsumed }) {
       </Card>
 
       {days.length === 0 && !importing && (
-        <Card>
+        <Card style={isDesktop ? S.spanFull : undefined}>
           <Empty text="Todavía no hay días. Importá un plan .md (ej. docs/plan.example.md) o creá el Día 1." />
           <button type="button" style={S.primary} onClick={() => importRef.current?.click()}>Importar plan .md</button>
           <button type="button" style={{ ...S.secondary, width: "100%", marginTop: 8 }} onClick={openCreateDay}>Crear día 1</button>
@@ -1491,7 +1551,7 @@ function Plan({ focusDayNumber = null, onFocusConsumed }) {
             Mostrando {shown.length} de {filtered.length}
             {filtered.length !== days.length ? ` · filtrados de ${days.length}` : ""}
           </div>
-          <div style={{ maxHeight: "min(55vh, 480px)", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+          <div style={{ maxHeight: isDesktop ? "calc(100vh - 300px)" : "min(55vh, 480px)", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
             {filtered.length === 0 && <Empty text="Sin resultados para esta búsqueda." />}
             {shown.map((d) => {
               const cal = calendarForDay(meta.anchor_date, d.day_number);
@@ -1719,6 +1779,7 @@ function ItineraryDaySheet({
   const v = sheet.values;
   const cal = calendarForDay(anchorDate, Number(v.day_number));
   const isEdit = sheet.mode === "edit";
+  const isDesktop = useIsDesktop();
   const stops = [...(sheet.stops || [])].sort((a, b) => a.sort_order - b.sort_order);
 
   useEffect(() => {
@@ -1742,8 +1803,9 @@ function ItineraryDaySheet({
         zIndex: 50,
         background: "rgba(0,0,0,0.45)",
         display: "flex",
-        alignItems: "flex-end",
+        alignItems: isDesktop ? "center" : "flex-end",
         justifyContent: "center",
+        ...(isDesktop ? { padding: 24 } : {}),
       }}
     >
       <div
@@ -1752,12 +1814,12 @@ function ItineraryDaySheet({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%",
-          maxWidth: 520,
+          maxWidth: isDesktop ? "min(100%, 640px)" : 520,
           maxHeight: "90vh",
           display: "flex",
           flexDirection: "column",
           background: C.surfaceContainer,
-          borderRadius: "16px 16px 0 0",
+          borderRadius: isDesktop ? 16 : "16px 16px 0 0",
           boxShadow: C.elevation2,
           paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
         }}
@@ -1838,6 +1900,7 @@ function ItineraryDaySheet({
 
 function ItineraryStopSheet({ sheet, busy, onChange, onSave, onClose }) {
   const v = sheet.values;
+  const isDesktop = useIsDesktop();
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape" && !busy) onClose(); };
     window.addEventListener("keydown", onKey);
@@ -1854,8 +1917,9 @@ function ItineraryStopSheet({ sheet, busy, onChange, onSave, onClose }) {
         zIndex: 60,
         background: "rgba(0,0,0,0.5)",
         display: "flex",
-        alignItems: "flex-end",
+        alignItems: isDesktop ? "center" : "flex-end",
         justifyContent: "center",
+        ...(isDesktop ? { padding: 24 } : {}),
       }}
     >
       <div
@@ -1864,11 +1928,11 @@ function ItineraryStopSheet({ sheet, busy, onChange, onSave, onClose }) {
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%",
-          maxWidth: 520,
+          maxWidth: isDesktop ? "min(100%, 640px)" : 520,
           maxHeight: "85vh",
           overflowY: "auto",
           background: C.surfaceContainer,
-          borderRadius: "16px 16px 0 0",
+          borderRadius: isDesktop ? 16 : "16px 16px 0 0",
           padding: "16px 16px max(16px, env(safe-area-inset-bottom))",
           boxShadow: C.elevation2,
         }}
@@ -1922,6 +1986,7 @@ const SESSION_AI_OPTIONS = [
 ];
 
 function Asistente({ sessions, setSessions }) {
+  const isDesktop = useIsDesktop();
   const [mode, setMode] = useState("planificar");
   const [activeId, setActiveId] = useState(sessions[0]?.id || null);
   const [msgs, setMsgs] = useState([]);
@@ -2193,7 +2258,7 @@ function Asistente({ sessions, setSessions }) {
   const planSessions = sessions.filter((s) => s.mode === "planificar");
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 190px)" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: isDesktop ? "calc(100vh - 170px)" : "calc(100vh - 190px)" }}>
       {confirmNode}
       <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
         <button style={{ ...S.chip, ...(mode === "planificar" ? S.chipOn : {}) }} onClick={() => setMode("planificar")}>Planificar</button>
@@ -2319,7 +2384,7 @@ function Asistente({ sessions, setSessions }) {
           return (
             <div key={key} style={{ display: "flex", justifyContent: isAssistant ? "flex-start" : "flex-end", marginBottom: 10 }}>
               <div style={{
-                maxWidth: "92%",
+                maxWidth: isDesktop ? "72%" : "92%",
                 position: "relative",
                 padding: isAssistant ? "10px 14px 12px" : "10px 14px",
                 borderRadius: isAssistant ? "16px 16px 16px 4px" : "16px 16px 4px 16px",
@@ -2377,6 +2442,7 @@ function Asistente({ sessions, setSessions }) {
 }
 
 function SessionNameSheet({ kind, initialName, busy, onSave, onClose }) {
+  const isDesktop = useIsDesktop();
   const [name, setName] = useState(initialName || "");
   const inputRef = useRef(null);
   const isCreate = kind === "create";
@@ -2405,10 +2471,10 @@ function SessionNameSheet({ kind, initialName, busy, onSave, onClose }) {
         inset: 0,
         zIndex: 200,
         display: "flex",
-        alignItems: "flex-end",
+        alignItems: isDesktop ? "center" : "flex-end",
         justifyContent: "center",
         background: "rgba(0, 0, 0, 0.58)",
-        padding: "12px 12px 0",
+        padding: isDesktop ? 24 : "12px 12px 0",
       }}
     >
       <form
@@ -2421,7 +2487,7 @@ function SessionNameSheet({ kind, initialName, busy, onSave, onClose }) {
           padding: "20px 18px max(20px, env(safe-area-inset-bottom))",
           background: C.surfaceContainer,
           border: `1px solid ${C.outlineVariant}`,
-          borderRadius: "20px 20px 0 0",
+          borderRadius: isDesktop ? 16 : "20px 20px 0 0",
           boxShadow: C.elevation2,
         }}
       >
@@ -2458,8 +2524,8 @@ function SessionNameSheet({ kind, initialName, busy, onSave, onClose }) {
 }
 
 /* ================= átomos ================= */
-function Card({ children }) {
-  return <div style={S.card}>{children}</div>;
+function Card({ children, style }) {
+  return <div style={{ ...S.card, ...style }}>{children}</div>;
 }
 function Row({ k, v, accent }) {
   return (

@@ -156,22 +156,22 @@ export function applyCssVars(theme) {
 }
 
 /** Estilos Material-inspired derivados del tema activo */
-export function buildStyles(C) {
+export function buildStyles(C, isDesktop = false) {
   return {
     app: {
       minHeight: "100vh",
       background: `radial-gradient(ellipse at 80% -10%, ${C.primaryContainer} 0%, transparent 45%), ${C.surface}`,
       color: C.onSurface,
       fontFamily: fonts.body,
-      maxWidth: 520,
-      margin: "0 auto",
-      paddingBottom: "calc(76px + env(safe-area-inset-bottom, 0px))",
+      ...(isDesktop
+        ? { maxWidth: "none", margin: 0, paddingLeft: 232, paddingBottom: 32 }
+        : { maxWidth: 520, margin: "0 auto", paddingBottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }),
     },
     header: {
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
-      padding: "16px 16px 10px",
+      padding: isDesktop ? "24px 0 12px" : "16px 16px 10px",
     },
     eyebrow: {
       ...type.caption,
@@ -202,7 +202,7 @@ export function buildStyles(C) {
       background: C.hanko,
       display: "block",
     },
-    main: { padding: "4px 16px" },
+    main: { padding: isDesktop ? "4px 0" : "4px 16px" },
     nav: {
       position: "fixed",
       bottom: 0,
@@ -336,10 +336,83 @@ export function buildStyles(C) {
       background: C.surfaceContainer,
       border: `1px solid ${C.outlineVariant}`,
       borderRadius: radii.lg,
-      padding: 16,
+      padding: isDesktop ? 20 : 16,
       marginBottom: 12,
       boxShadow: C.elevation1,
     },
+    content: isDesktop
+      ? { maxWidth: 1120, margin: "0 auto", padding: "0 32px 40px" }
+      : {},
+    rail: {
+      position: "fixed",
+      top: 0,
+      bottom: 0,
+      left: 0,
+      width: 232,
+      display: "flex",
+      flexDirection: "column",
+      gap: 8,
+      padding: "20px 12px",
+      background: C.surfaceContainer,
+      borderRight: `1px solid ${C.outlineVariant}`,
+      zIndex: 30,
+      overflowY: "auto",
+    },
+    railBrand: {
+      display: "flex",
+      gap: 10,
+      alignItems: "center",
+      padding: "0 8px 14px",
+      marginBottom: 6,
+      borderBottom: `1px solid ${C.outlineVariant}`,
+    },
+    railNav: { display: "flex", flexDirection: "column", gap: 4, flex: 1 },
+    railBtn: {
+      width: "100%",
+      display: "flex",
+      gap: 10,
+      alignItems: "center",
+      padding: "10px 12px",
+      borderRadius: 10,
+      border: "none",
+      background: "none",
+      color: C.onSurfaceVariant,
+      fontSize: 13,
+      fontWeight: 500,
+      minHeight: 44,
+      position: "relative",
+      textAlign: "left",
+      cursor: "pointer",
+    },
+    railBtnActive: {
+      color: C.onPrimaryContainer,
+      background: C.primaryContainer,
+      fontWeight: 700,
+    },
+    railIndicator: {
+      position: "absolute",
+      left: 0,
+      top: "50%",
+      transform: "translateY(-50%)",
+      width: 3,
+      height: 18,
+      borderRadius: 999,
+      background: C.primary,
+    },
+    railFooter: {
+      display: "flex",
+      gap: 4,
+      paddingTop: 12,
+      borderTop: `1px solid ${C.outlineVariant}`,
+    },
+    grid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))",
+      columnGap: 16,
+      rowGap: 0,
+      alignItems: "start",
+    },
+    spanFull: { gridColumn: "1 / -1" },
   };
 }
 
@@ -347,9 +420,9 @@ export function buildStyles(C) {
 export let C = getTheme("dark");
 export let S = buildStyles(C);
 
-export function applyTheme(mode) {
+export function applyTheme(mode, isDesktop = false) {
   C = getTheme(mode);
-  S = buildStyles(C);
+  S = buildStyles(C, isDesktop);
   applyCssVars(C);
   return C;
 }

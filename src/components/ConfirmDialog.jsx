@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { C, S } from "../theme";
+import { useIsDesktop } from "../lib/viewport";
 
 /**
  * Modal de confirmación con brand Nihon (reemplaza window.confirm).
@@ -16,6 +17,7 @@ export function ConfirmDialog({
   onCancel,
 }) {
   const confirmRef = useRef(null);
+  const isDesktop = useIsDesktop();
 
   useEffect(() => {
     if (!open) return undefined;
@@ -47,7 +49,7 @@ export function ConfirmDialog({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: 16,
+        padding: isDesktop ? 24 : 16,
       }}
     >
       <div
@@ -56,7 +58,7 @@ export function ConfirmDialog({
         aria-labelledby="confirm-title"
         aria-describedby="confirm-desc"
         style={{
-          width: "min(100%, 400px)",
+          width: isDesktop ? "min(100%, 480px)" : "min(100%, 400px)",
           background: C.surfaceContainer,
           border: `1px solid ${C.outlineVariant}`,
           borderRadius: 16,

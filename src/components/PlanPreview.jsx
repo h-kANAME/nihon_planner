@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import { C, S } from "../theme";
+import { useIsDesktop } from "../lib/viewport";
 
 /**
  * Preview híbrida: corredor de ciudades + chips de días.
  * @param {{ days: Array<{ day_number: number, title?: string, base?: string, stay_label?: string }>, onOpenDay: (n: number) => void }} props
  */
 export default function PlanPreview({ days = [], onOpenDay }) {
+  const isDesktop = useIsDesktop();
   const [cityFilter, setCityFilter] = useState(null);
 
   const corridor = useMemo(() => buildCorridor(days), [days]);
@@ -33,7 +35,8 @@ export default function PlanPreview({ days = [], onOpenDay }) {
           display: "flex",
           alignItems: "center",
           gap: 0,
-          overflowX: "auto",
+          overflowX: isDesktop ? "visible" : "auto",
+          flexWrap: isDesktop ? "wrap" : "nowrap",
           paddingBottom: 8,
           marginBottom: 12,
         }}
@@ -77,7 +80,7 @@ export default function PlanPreview({ days = [], onOpenDay }) {
         </button>
       )}
 
-      <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: isDesktop ? "wrap" : "nowrap", overflowX: isDesktop ? "visible" : "auto", paddingBottom: 4 }}>
         {chips.map((d) => (
           <button
             key={d.day_number}
