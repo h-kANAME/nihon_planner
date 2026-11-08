@@ -1,0 +1,26 @@
+---
+description: Brand SoT — brand_app es la fuente de verdad visual de Nihon Planner
+globs:
+  - brand_app/**
+  - src/theme.js
+  - src/**/*.{jsx,js,css}
+  - docs/brand.md
+  - docs/design-tokens.md
+alwaysApply: false
+---
+
+# Brand source of truth
+
+La identidad visual canónica vive en **`brand_app/`**:
+
+- `brand_app/tokens.json` — DTCG
+- `brand_app/tokens.css` — CSS variables + `.np-*`
+- `brand_app/brandbook.html` — brandbook
+- `brand_app/README.md` — cómo consumir
+
+## Reglas
+
+1. No inventar colores, tipografías, radios ni motion fuera de esos tokens.
+2. No tratar `docs/brand.md` ni `docs/design-tokens.md` como SoT: el primero es índice; el segundo documenta el **runtime legacy** (`src/theme.js`, verde kyz) hasta el cross.
+3. Al diseñar o restylar UI, preferir semántica `brand_app` (`--accent` = hi-no-maru, light-first, Space Grotesk / IBM Plex).
+4. Cambios de marca: editar `brand_app` primero; luego propagar al sistema.

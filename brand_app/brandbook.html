@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nihon Planner · Brandbook</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23FAFAF7' stroke='%23BC002D' stroke-width='0.75'/%3E%3Ccircle cx='16' cy='16' r='9' fill='%23BC002D'/%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* =========================================================
+   NIHON PLANNER · Brand tokens v1.1
+   Fuente de verdad visual de la solución.
+   Orden: 1 primitivos → 2 semánticos (claro/oscuro) → 3 escalas
+          → 4 base → 5 componentes (.np-*)
+   Uso:   <html data-theme="light|dark"> · sin atributo = sigue al sistema
+   Fuentes (Google Fonts):
+   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+   ========================================================= */
+
+/* ---------- 1. PRIMITIVOS (no usar directo en componentes) ---------- */
+:root {
+  /* Sumi 墨 · tinta, base oscura */
+  --np-sumi-900: #26272B;
+  --np-sumi-800: #2D2E32;   /* base dark (del portfolio) */
+  --np-sumi-700: #34363B;
+  --np-sumi-600: #3E4046;
+  --np-sumi-500: #4E5057;
+  --np-sumi-400: #6E7076;
+  --np-sumi-300: #A6A8AE;
+
+  /* Shironeri 白練 · papel, base clara */
+  --np-paper-50:  #FAFAF7;
+  --np-paper-100: #F5F1E8;  /* base light */
+  --np-paper-200: #ECE7DA;
+  --np-paper-300: #E5E1D3;
+  --np-paper-400: #CFC9B8;
+
+  /* Neutros de texto sobre papel */
+  --np-ink-600: #6B6D73;
+  --np-ink-400: #94969D;
+
+  /* Hi no Maru 日の丸 · rojo bandera, único acento fuerte */
+  --np-maru-600: #BC002D;   /* sobre claro */
+  --np-maru-500: #E11845;   /* relleno sobre oscuro */
+  --np-maru-300: #FF7F99;   /* texto sobre oscuro (AA) */
+
+  /* Kohaku 琥珀 · ámbar, "gestionar" */
+  --np-kohaku-700: #8F4F0E; /* texto sobre claro (AA) */
+  --np-kohaku-600: #C97A2B;
+  --np-kohaku-400: #E8A055;
+
+  /* Colores de base (ciudad). Solo para franjas/acentos, nunca texto */
+  --np-city-osaka-a:  #6B9080;  --np-city-osaka-b:  #A4C3B2;
+  --np-city-kyoto-a:  #B08968;  --np-city-kyoto-b:  #DDB892;
+}
+
+/* ---------- 2. SEMÁNTICOS · CLARO (default) ---------- */
+:root {
+  color-scheme: light;
+
+  --bg:            var(--np-paper-100);
+  --bg-elev:       var(--np-paper-50);
+  --bg-sunken:     var(--np-paper-200);
+
+  --fg:            var(--np-sumi-800);
+  --fg-muted:      var(--np-ink-600);   /* texto secundario · AA 4.59 */
+  --fg-subtle:     var(--np-ink-400);   /* SOLO decorativo/placeholder · 2.62, no usar para texto esencial */
+
+  --border:        var(--np-paper-300);
+  --border-strong: var(--np-paper-400);
+
+  --accent:        var(--np-maru-600);  /* rellenos, bordes, iconos */
+  --accent-text:   var(--np-maru-600);  /* texto · AA 5.87 */
+  --accent-fg:     var(--np-paper-50);  /* texto sobre relleno accent */
+  --accent-soft:   rgba(188, 0, 45, .08);
+
+  --warn:          var(--np-kohaku-600);   /* rellenos, bordes */
+  --warn-text:     var(--np-kohaku-700);   /* texto · AA 5.66 */
+  --warn-soft:     rgba(232, 160, 85, .14);
+
+  --shadow:    0 1px 2px rgba(45,46,50,.04), 0 8px 24px rgba(45,46,50,.06);
+  --shadow-lg: 0 4px 12px rgba(45,46,50,.08), 0 20px 40px rgba(45,46,50,.10);
+}
+
+/* ---------- 2b. SEMÁNTICOS · OSCURO ---------- */
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg:            var(--np-sumi-800);
+  --bg-elev:       var(--np-sumi-700);
+  --bg-sunken:     var(--np-sumi-900);
+
+  --fg:            var(--np-paper-50);
+  --fg-muted:      var(--np-sumi-300);
+  --fg-subtle:     var(--np-sumi-400);
+
+  --border:        var(--np-sumi-600);
+  --border-strong: var(--np-sumi-500);
+
+  --accent:        var(--np-maru-500);
+  --accent-text:   var(--np-maru-300);  /* #E11845 sobre sumi da 2.85 → texto usa maru-300 */
+  --accent-fg:     var(--np-paper-50);
+  --accent-soft:   rgba(225, 24, 69, .14);
+
+  --warn:          var(--np-kohaku-400);
+  --warn-text:     var(--np-kohaku-400);
+  --warn-soft:     rgba(232, 160, 85, .16);
+
+  --shadow:    0 1px 2px rgba(0,0,0,.20), 0 8px 24px rgba(0,0,0,.30);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,.30), 0 20px 40px rgba(0,0,0,.40);
+}
+
+/* Sin data-theme: seguir preferencia del sistema */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) {
+    color-scheme: dark;
+
+    --bg:            var(--np-sumi-800);
+    --bg-elev:       var(--np-sumi-700);
+    --bg-sunken:     var(--np-sumi-900);
+
+    --fg:            var(--np-paper-50);
+    --fg-muted:      var(--np-sumi-300);
+    --fg-subtle:     var(--np-sumi-400);
+
+    --border:        var(--np-sumi-600);
+    --border-strong: var(--np-sumi-500);
+
+    --accent:        var(--np-maru-500);
+    --accent-text:   var(--np-maru-300);
+    --accent-fg:     var(--np-paper-50);
+    --accent-soft:   rgba(225, 24, 69, .14);
+
+    --warn:          var(--np-kohaku-400);
+    --warn-text:     var(--np-kohaku-400);
+    --warn-soft:     rgba(232, 160, 85, .16);
+
+    --shadow:    0 1px 2px rgba(0,0,0,.20), 0 8px 24px rgba(0,0,0,.30);
+    --shadow-lg: 0 4px 12px rgba(0,0,0,.30), 0 20px 40px rgba(0,0,0,.40);
+  }
+}
+
+/* ---------- 3. ESCALAS (iguales en ambos temas) ---------- */
+:root {
+  /* Tipografía */
+  --font-display: 'Space Grotesk', system-ui, -apple-system, sans-serif;   /* títulos, cifras, número de día */
+  --font-body:    'IBM Plex Sans', system-ui, -apple-system, sans-serif;   /* texto de UI */
+  --font-mono:    'IBM Plex Mono', 'SF Mono', Consolas, monospace;         /* datos, eyebrows, badges */
+
+  --fw-display: 600;        /* Space Grotesk se usa en 500–700, nunca 400 */
+  --ls-display: -.03em;     /* tracking apretado en display */
+
+  --fs-hero:    clamp(38px, 6vw, 68px);   /* display */
+  --fs-section: clamp(28px, 4vw, 40px);   /* display */
+  --fs-kpi:     36px;                     /* display */
+  --fs-h2:      22px;
+  --fs-h3:      17px;
+  --fs-body:    15px;
+  --fs-small:   13px;
+  --fs-caption: 12px;
+  --fs-micro:   11px;                     /* mono, eyebrows y badges */
+  --fs-nano:    10px;                     /* mono, labels de columna */
+
+  --lh-tight: 1.08;   /* display */
+  --lh-body:  1.55;
+  --ls-eyebrow: .14em;
+  --ls-label:   .16em;
+
+  /* Espaciado · base 4px */
+  --sp-1: 4px;   --sp-2: 8px;   --sp-3: 12px;  --sp-4: 16px;
+  --sp-5: 20px;  --sp-6: 24px;  --sp-8: 32px;  --sp-10: 40px;  --sp-14: 56px;
+
+  /* Radios */
+  --radius-sm:   6px;
+  --radius:      10px;
+  --radius-lg:   16px;
+  --radius-pill: 999px;
+
+  /* Movimiento */
+  --ease-out:  cubic-bezier(.32, .72, 0, 1);
+  --dur-fast:  .15s;
+  --dur-base:  .25s;
+  --dur-theme: .3s;
+
+  /* Capas */
+  --z-topbar: 20;
+  --z-bottombar: 30;
+  --z-overlay: 40;
+  --z-sheet: 50;
+
+  /* Layout */
+  --sidebar-w: 264px;
+  --sidebar-w-collapsed: 68px;
+  --bottombar-h: 64px;
+  --header-h: 60px;
+  --content-max: 920px;
+  --bp-mobile: 900px;       /* ≤ 900px = mobile: sidebar → bottom bar */
+}
+
+/* ---------- 4. BASE ---------- */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color var(--dur-theme), color var(--dur-theme);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- 5. COMPONENTES (.np-*) ---------- */
+
+/* Tipografía */
+.np-display { font-family: var(--font-display); font-weight: var(--fw-display); letter-spacing: var(--ls-display); line-height: var(--lh-tight); }
+.np-display em { color: var(--accent-text); font-style: normal; }          /* énfasis de una palabra en rojo, una por pantalla (sin cursiva) */
+.np-mono    { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.np-eyebrow {
+  font-family: var(--font-mono); font-size: var(--fs-micro); font-weight: 500;
+  letter-spacing: var(--ls-eyebrow); text-transform: uppercase;
+  color: var(--fg-muted);                                                   /* muted, no subtle: es texto */
+}
+.np-label {
+  font-family: var(--font-mono); font-size: var(--fs-nano); font-weight: 600;
+  letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--fg-muted);
+}
+
+/* Superficies */
+.np-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-5);
+}
+.np-card--critical { border-color: color-mix(in srgb, var(--accent) 30%, var(--border)); }
+.np-card--raised   { box-shadow: var(--shadow-lg); border-color: var(--fg-muted); }
+
+/* KPI: usar junto a .np-card → <div class="np-card np-kpi"> */
+.np-kpi__value { font-family: var(--font-display); font-weight: var(--fw-display); letter-spacing: var(--ls-display); font-size: var(--fs-kpi); line-height: 1; }
+.np-kpi__label { margin-bottom: var(--sp-2); }   /* + clase .np-label */
+.np-kpi__hint  { font-size: var(--fs-caption); color: var(--fg-muted); margin-top: 6px; }
+
+/* Badges · semántica fija: critical = reservar sí o sí · manage = gestionar · time = dato */
+.np-badge {
+  display: inline-flex; align-items: center; gap: var(--sp-1);
+  font-family: var(--font-mono); font-size: var(--fs-micro); font-weight: 500; letter-spacing: .02em;
+  padding: 3px var(--sp-2); border-radius: var(--radius-pill);
+}
+.np-badge--critical { background: var(--accent-soft); color: var(--accent-text); }
+.np-badge--critical::before { content: '●'; }
+.np-badge--manage   { background: var(--warn-soft);   color: var(--warn-text); }
+.np-badge--manage::before   { content: '◐'; }
+.np-badge--time     { background: var(--bg-sunken);   color: var(--fg-muted); }
+
+/* Chips (tags de lugar) */
+.np-chip {
+  font-size: var(--fs-micro); padding: 3px var(--sp-2); border-radius: var(--radius-pill);
+  background: var(--bg-sunken); color: var(--fg-muted); border: 1px solid var(--border);
+}
+
+/* Botones */
+.np-btn {
+  font: inherit; font-size: var(--fs-small); font-weight: 500; cursor: pointer;
+  padding: var(--sp-2) var(--sp-4); border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: transparent; color: var(--fg);
+  transition: background-color var(--dur-fast), border-color var(--dur-fast);
+}
+.np-btn:hover { background: var(--bg-sunken); }
+.np-btn--primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.np-btn--primary:hover { background: var(--accent); filter: brightness(1.08); }
+.np-icon-btn {
+  width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--fg); cursor: pointer;
+}
+.np-icon-btn:hover { background: var(--bg-sunken); }
+
+/* Aviso */
+.np-callout {
+  background: var(--warn-soft);
+  border: 1px solid color-mix(in srgb, var(--warn) 30%, var(--border));
+  border-radius: var(--radius); padding: 14px var(--sp-4);
+  font-size: var(--fs-small); color: var(--fg);
+}
+
+/* Número de día (firma visual): serif grande, rojo si el día es crítico */
+.np-daynum { font-family: var(--font-display); font-weight: var(--fw-display); letter-spacing: var(--ls-display); font-size: 42px; line-height: .9; color: var(--fg-muted); min-width: 56px; }
+.np-card--critical .np-daynum { color: var(--accent-text); }
+
+/* Nav item (sidebar / sheets) */
+.np-nav-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: var(--sp-2) 10px; border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: var(--fg-muted); font: inherit; font-size: 14px; text-align: left; cursor: pointer;
+  transition: background-color var(--dur-fast), color var(--dur-fast);
+}
+.np-nav-item:hover { background: var(--bg-sunken); color: var(--fg); }
+.np-nav-item.is-active { background: var(--accent-soft); color: var(--accent-text); font-weight: 500; }
+
+/* Franja de base (ciudad) en la parte superior de una card */
+.np-city { position: relative; overflow: hidden; }
+.np-city::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--fg); }
+.np-city--osaka::before  { background: linear-gradient(90deg, var(--np-city-osaka-a), var(--np-city-osaka-b)); }
+.np-city--kyoto::before  { background: linear-gradient(90deg, var(--np-city-kyoto-a), var(--np-city-kyoto-b)); }
+.np-city--hakone::before { background: linear-gradient(90deg, var(--warn), var(--np-kohaku-400)); }
+.np-city--tokyo::before  { background: linear-gradient(90deg, var(--accent), var(--np-maru-500)); }
+
+/* Punto de día crítico (timeline) */
+.np-pulse::before {
+  content: ''; position: absolute; top: -3px; right: -3px; width: 7px; height: 7px;
+  border-radius: 50%; background: var(--accent); border: 1.5px solid var(--bg);
+  animation: np-pulse 2.4s ease-out infinite;
+}
+@keyframes np-pulse { 0%, 60% { box-shadow: 0 0 0 0 var(--accent-soft); } 100% { box-shadow: 0 0 0 6px transparent; } }
+@media (prefers-reduced-motion: reduce) { .np-pulse::before { animation: none; } }
+
+/* ---- layout del brandbook (no es parte del kit) ---- */
+.bb{max-width:960px;margin:0 auto;padding:32px 24px 80px}
+.bb-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:40px}
+.bb-brand{display:flex;align-items:center;gap:12px}
+.bb section{margin-top:56px}
+.bb h2.np-display{font-size:var(--fs-section);margin:6px 0 8px}
+.bb .lead{color:var(--fg-muted);max-width:620px;margin:0 0 24px}
+.grid{display:grid;gap:12px}
+.g-sw{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.g-2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.sw{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--bg-elev)}
+.sw i{display:block;height:64px}
+.sw div{padding:10px 12px;font-family:var(--font-mono);font-size:var(--fs-micro);line-height:1.5;color:var(--fg-muted)}
+.sw b{display:block;color:var(--fg);font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-small)}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border)}
+th{font-family:var(--font-mono);font-size:var(--fs-nano);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--fg-muted);font-weight:600}
+td.mono{font-family:var(--font-mono);font-size:var(--fs-caption)}
+.ok{color:var(--fg);font-weight:600}
+.no{color:var(--warn-text);font-weight:600}
+pre{background:var(--bg-sunken);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow-x:auto;font-family:var(--font-mono);font-size:var(--fs-caption);line-height:1.6;margin:0}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.demo{border:1px dashed var(--border-strong);border-radius:var(--radius);padding:20px}
+.rule{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.rule>div{border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;background:var(--bg-elev);font-size:var(--fs-small)}
+.rule h4{margin:0 0 6px;font-family:var(--font-mono);font-size:var(--fs-nano);letter-spacing:var(--ls-label);text-transform:uppercase}
+@media(max-width:620px){.rule{grid-template-columns:1fr}}
+.logo-tile{display:flex;align-items:center;justify-content:center;height:120px;border-radius:var(--radius);border:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="bb">
+
+<div class="bb-top">
+  <div class="bb-brand">
+    <svg width="38" height="38" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="var(--bg-elev)" stroke="var(--border-strong)" stroke-width=".75"/><circle cx="16" cy="16" r="9" fill="var(--accent)"/></svg>
+    <div>
+      <div class="np-mono" style="font-weight:700;font-size:14px">nihon_planner</div>
+      <div class="np-eyebrow">brandbook · tokens v1.1</div>
+    </div>
+  </div>
+  <button class="np-btn" id="themeBtn">Modo oscuro</button>
+</div>
+
+<h1 class="np-display" style="font-size:var(--fs-hero);margin:0">Tinta <em>sumi</em>, papel y un solo círculo rojo.</h1>
+<p class="lead" style="margin-top:14px">Sistema visual de Nihon Planner: dos temas, tres tipografías (Space Grotesk, IBM Plex Sans, IBM Plex Mono), un acento. Todo sale de <code class="np-mono">tokens.css</code>; esta página lo muestra sin reglas propias de color.</p>
+
+<!-- IDENTIDAD -->
+<section>
+  <div class="np-eyebrow">01 · Identidad</div>
+  <h2 class="np-display">Marca y favicon</h2>
+  <p class="lead">La marca es la bandera de Japón en versión redondeada: disco rojo centrado sobre círculo de papel con borde fino. Se usa igual en pestaña, sidebar y topbar mobile.</p>
+  <div class="grid g-2">
+    <div class="logo-tile" style="background:var(--np-paper-100)">
+      <svg width="72" height="72" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="#FAFAF7" stroke="#CFC9B8" stroke-width=".75"/><circle cx="16" cy="16" r="9" fill="#BC002D"/></svg>
+    </div>
+    <div class="logo-tile" style="background:var(--np-sumi-800)">
+      <svg width="72" height="72" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="#34363B" stroke="#4E5057" stroke-width=".75"/><circle cx="16" cy="16" r="9" fill="#E11845"/></svg>
+    </div>
+  </div>
+  <pre style="margin-top:12px">&lt;svg viewBox="0 0 32 32" aria-hidden="true"&gt;
+  &lt;circle cx="16" cy="16" r="15" fill="var(--bg-elev)" stroke="var(--border-strong)" stroke-width=".75"/&gt;
+  &lt;circle cx="16" cy="16" r="9"  fill="var(--accent)"/&gt;
+&lt;/svg&gt;
+
+favicon → círculo #FAFAF7 con borde #BC002D 0.75 + disco #BC002D (r=9 sobre 32)</pre>
+</section>
+
+<!-- COLOR -->
+<section>
+  <div class="np-eyebrow">02 · Color</div>
+  <h2 class="np-display">Cuatro familias</h2>
+  <p class="lead">Sumi y Shironeri son las bases. Hi no Maru es el único acento fuerte. Kohaku marca lo que hay que gestionar. Las franjas de ciudad nunca llevan texto.</p>
+  <div class="grid g-sw" id="swatches"></div>
+</section>
+
+<!-- CONTRASTE -->
+<section>
+  <div class="np-eyebrow">03 · Accesibilidad</div>
+  <h2 class="np-display">Contraste de texto</h2>
+  <p class="lead">Medido con WCAG 2.x. Por eso existen <code class="np-mono">--accent-text</code> y <code class="np-mono">--warn-text</code>: el rojo y el ámbar de relleno no alcanzan 4.5:1 como texto en todos los fondos.</p>
+  <table>
+    <thead><tr><th>Par</th><th>Ratio</th><th>AA texto</th><th>Uso</th></tr></thead>
+    <tbody id="contrast"></tbody>
+  </table>
+</section>
+
+<!-- TIPOGRAFIA -->
+<section>
+  <div class="np-eyebrow">04 · Tipografía</div>
+  <h2 class="np-display">Grotesca, sans y mono</h2>
+  <p class="lead">Space Grotesk lleva el carácter (títulos, números grandes) y se usa siempre en 500–700. IBM Plex Sans hace el trabajo. IBM Plex Mono marca datos: días, horas, etiquetas, tags técnicos.</p>
+  <div class="grid">
+    <div class="demo"><div class="np-label">Display · Space Grotesk 600</div><div class="np-display" style="font-size:var(--fs-section);margin-top:8px">Itinerario <em>Fito</em> · 20 días</div></div>
+    <div class="demo"><div class="np-label">Body · IBM Plex Sans 15/1.55</div><p style="margin:8px 0 0">Fun2Drive pide reserva obligatoria y anticipada: la flota es limitada y es el cuello de botella del día 9.</p></div>
+    <div class="demo"><div class="np-label">Mono · IBM Plex Mono</div><div class="np-mono" style="margin-top:8px;font-size:var(--fs-small)">09:30 → 12:00 · ~2h30–3h · ¥35.980</div></div>
+  </div>
+  <table style="margin-top:20px">
+    <thead><tr><th>Token</th><th>Valor</th><th>Rol</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">--fs-hero</td><td class="mono">clamp(38px, 6vw, 68px)</td><td>Título de página (display)</td></tr>
+      <tr><td class="mono">--fs-section</td><td class="mono">clamp(28px, 4vw, 40px)</td><td>Título de sección (display)</td></tr>
+      <tr><td class="mono">--fs-kpi</td><td class="mono">36px</td><td>Cifra grande (display)</td></tr>
+      <tr><td class="mono">--fs-h2 / --fs-h3</td><td class="mono">22px / 17px</td><td>Encabezados de UI</td></tr>
+      <tr><td class="mono">--fs-body</td><td class="mono">15px</td><td>Texto base</td></tr>
+      <tr><td class="mono">--fs-small / --fs-caption</td><td class="mono">13px / 12px</td><td>Notas, metadatos</td></tr>
+      <tr><td class="mono">--fs-micro / --fs-nano</td><td class="mono">11px / 10px</td><td>Eyebrows, badges, labels (mono)</td></tr>
+      <tr><td class="mono">--fw-display / --ls-display</td><td class="mono">600 / -.03em</td><td>Peso y tracking de todo texto display</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ESCALAS -->
+<section>
+  <div class="np-eyebrow">05 · Escalas</div>
+  <h2 class="np-display">Espaciado, radios, sombras</h2>
+  <div class="row" style="margin-bottom:20px" id="spacing"></div>
+  <div class="row" style="margin-bottom:20px">
+    <div class="demo" style="border-radius:var(--radius-sm);padding:14px 20px">radius-sm 6</div>
+    <div class="demo" style="border-radius:var(--radius);padding:14px 20px">radius 10</div>
+    <div class="demo" style="border-radius:var(--radius-lg);padding:14px 20px">radius-lg 16</div>
+    <div class="demo" style="border-radius:var(--radius-pill);padding:14px 20px">pill</div>
+  </div>
+  <div class="row">
+    <div class="np-card" style="box-shadow:var(--shadow)">--shadow</div>
+    <div class="np-card" style="box-shadow:var(--shadow-lg)">--shadow-lg</div>
+  </div>
+</section>
+
+<!-- COMPONENTES -->
+<section>
+  <div class="np-eyebrow">06 · Componentes</div>
+  <h2 class="np-display">Piezas base</h2>
+  <p class="lead">Clases con prefijo <code class="np-mono">.np-</code>. Los badges tienen semántica fija: no se reusan para decorar.</p>
+
+  <div class="demo" style="margin-bottom:12px">
+    <div class="np-label" style="margin-bottom:10px">Badges</div>
+    <div class="row">
+      <span class="np-badge np-badge--critical">Fun2Drive · reserva obligatoria</span>
+      <span class="np-badge np-badge--manage">Shinkansen asiento reservado</span>
+      <span class="np-badge np-badge--time">~10 h</span>
+    </div>
+  </div>
+
+  <div class="demo" style="margin-bottom:12px">
+    <div class="np-label" style="margin-bottom:10px">Botones · chips</div>
+    <div class="row">
+      <button class="np-btn np-btn--primary">Ir al día 9</button>
+      <button class="np-btn">Imprimir / PDF</button>
+      <span class="np-chip">Fun2Drive</span><span class="np-chip">Owakudani</span><span class="np-chip">Lago Ashi</span>
+    </div>
+  </div>
+
+  <div class="grid g-2" style="margin-bottom:12px">
+    <div class="np-card np-card--critical">
+      <div class="row" style="align-items:flex-start;flex-wrap:nowrap">
+        <div class="np-daynum">09</div>
+        <div>
+          <div style="font-weight:600;font-size:var(--fs-h3)">Kyoto → Odawara + Fun2Drive</div>
+          <div class="np-mono" style="font-size:var(--fs-caption);color:var(--fg-muted);margin-top:4px">Duerme en: Ryokan Hakone</div>
+        </div>
+      </div>
+    </div>
+    <div class="np-card np-kpi">
+      <div class="np-label np-kpi__label">A reservar</div>
+      <div class="np-kpi__value">15</div>
+      <div class="np-kpi__hint">Ítems con gestión anticipada</div>
+    </div>
+  </div>
+
+  <div class="grid g-2" style="margin-bottom:12px">
+    <div class="np-card np-city np-city--osaka"><b class="np-display" style="font-size:26px;font-weight:400">Osaka</b><div class="np-kpi__hint">Namba · 4 noches</div></div>
+    <div class="np-card np-city np-city--kyoto"><b class="np-display" style="font-size:26px;font-weight:400">Kyoto</b><div class="np-kpi__hint">Kyoto Station · 4 noches</div></div>
+    <div class="np-card np-city np-city--hakone"><b class="np-display" style="font-size:26px;font-weight:400">Hakone</b><div class="np-kpi__hint">Ryokan · 1 noche</div></div>
+    <div class="np-card np-city np-city--tokyo"><b class="np-display" style="font-size:26px;font-weight:400">Tokyo</b><div class="np-kpi__hint">Ikebukuro · 10 noches</div></div>
+  </div>
+
+  <div class="np-callout">Estos datos <strong>no están definidos aún</strong> en el plan: el asesor los va a pedir para cerrar el presupuesto.</div>
+</section>
+
+<!-- REGLAS -->
+<section>
+  <div class="np-eyebrow">07 · Reglas de uso</div>
+  <h2 class="np-display">Qué sí, qué no</h2>
+  <div class="rule">
+    <div><h4 class="ok">Sí</h4>
+      Texto rojo/ámbar siempre con <code class="np-mono">--accent-text</code> / <code class="np-mono">--warn-text</code>.<br><br>
+      Una palabra en rojo, sin cursiva, por pantalla (<code class="np-mono">.np-display em</code>).<br><br>
+      Datos (días, horas, precios) en mono.<br><br>
+      Rojo = crítico. Ámbar = gestionar. Gris = dato.
+    </div>
+    <div><h4 class="no">No</h4>
+      <code class="np-mono">--fg-subtle</code> para texto que hay que leer (2.6:1).<br><br>
+      <code class="np-mono">--accent</code> como color de texto en oscuro (2.85:1).<br><br>
+      Colores de ciudad detrás de texto.<br><br>
+      Un segundo acento: la identidad es un solo círculo rojo.
+    </div>
+  </div>
+</section>
+
+<!-- INTEGRACION -->
+<section>
+  <div class="np-eyebrow">08 · Integración</div>
+  <h2 class="np-display">Cómo usar el kit</h2>
+  <pre>&lt;link rel="stylesheet" href="nihon-brand/tokens.css"&gt;
+&lt;link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet"&gt;
+
+&lt;html data-theme="dark"&gt;   &lt;!-- "light" | "dark" | sin atributo = sistema --&gt;
+
+&lt;span class="np-badge np-badge--critical"&gt;Reserva obligatoria&lt;/span&gt;
+&lt;h1 class="np-display"&gt;Itinerario &lt;em&gt;Fito&lt;/em&gt;&lt;/h1&gt;
+
+/* Nombres semánticos compatibles con el artefacto actual:
+   --bg --bg-elev --bg-sunken --fg --fg-muted --fg-subtle
+   --border --border-strong --accent --accent-fg --accent-soft
+   --warn --warn-soft --shadow --shadow-lg --radius(-sm|-lg)
+   Nuevos: --accent-text --warn-text */</pre>
+</section>
+
+</div>
+
+<script>
+function lum(h){h=h.replace('#','');const c=[0,2,4].map(i=>parseInt(h.slice(i,i+2),16)/255).map(v=>v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4));return .2126*c[0]+.7152*c[1]+.0722*c[2]}
+function cr(a,b){let x=lum(a),y=lum(b);if(x<y)[x,y]=[y,x];return (x+.05)/(y+.05)}
+
+const FAM=[
+ ['Sumi 墨',[['sumi-900','#26272B'],['sumi-800','#2D2E32'],['sumi-700','#34363B'],['sumi-600','#3E4046'],['sumi-500','#4E5057'],['sumi-400','#6E7076'],['sumi-300','#A6A8AE']]],
+ ['Shironeri 白練',[['paper-50','#FAFAF7'],['paper-100','#F5F1E8'],['paper-200','#ECE7DA'],['paper-300','#E5E1D3'],['paper-400','#CFC9B8'],['ink-600','#6B6D73'],['ink-400','#94969D']]],
+ ['Hi no Maru 日の丸',[['maru-600','#BC002D'],['maru-500','#E11845'],['maru-300','#FF7F99']]],
+ ['Kohaku 琥珀',[['kohaku-700','#8F4F0E'],['kohaku-600','#C97A2B'],['kohaku-400','#E8A055']]],
+ ['Ciudades (solo franjas)',[['osaka-a','#6B9080'],['osaka-b','#A4C3B2'],['kyoto-a','#B08968'],['kyoto-b','#DDB892']]]
+];
+document.getElementById('swatches').innerHTML=FAM.map(([n,l])=>`<div style="grid-column:1/-1" class="np-label">${n}</div>`+l.map(([k,v])=>`<div class="sw"><i style="background:${v}"></i><div><b>--np-${k}</b>${v}</div></div>`).join('')).join('');
+
+const PAIRS=[
+ ['fg / bg · claro','#2D2E32','#F5F1E8','Texto base'],
+ ['fg-muted / bg · claro','#6B6D73','#F5F1E8','Texto secundario'],
+ ['fg-subtle / bg · claro','#94969D','#F5F1E8','Solo decorativo'],
+ ['accent-text / bg · claro','#BC002D','#F5F1E8','Texto de acento'],
+ ['warn-text / bg · claro','#8F4F0E','#F5F1E8','Texto ámbar'],
+ ['warn (relleno) / bg · claro','#C97A2B','#F5F1E8','Solo rellenos'],
+ ['fg / bg · oscuro','#FAFAF7','#2D2E32','Texto base'],
+ ['fg-muted / bg · oscuro','#A6A8AE','#2D2E32','Texto secundario'],
+ ['fg-subtle / bg · oscuro','#6E7076','#2D2E32','Solo decorativo'],
+ ['accent-text / bg · oscuro','#FF7F99','#2D2E32','Texto de acento'],
+ ['accent (relleno) / bg · oscuro','#E11845','#2D2E32','Solo rellenos'],
+ ['warn-text / bg · oscuro','#E8A055','#2D2E32','Texto ámbar'],
+ ['accent-fg sobre accent · claro','#FAFAF7','#BC002D','Botón primario'],
+ ['accent-fg sobre accent · oscuro','#FAFAF7','#E11845','Botón primario (texto 13px+ medium)']
+];
+document.getElementById('contrast').innerHTML=PAIRS.map(([n,a,b,u])=>{const r=cr(a,b);const ok=r>=4.5;return `<tr><td>${n}</td><td class="mono">${r.toFixed(2)}:1</td><td class="${ok?'ok':'no'}">${ok?'Pasa':'No para texto'}</td><td>${u}</td></tr>`}).join('');
+
+document.getElementById('spacing').innerHTML=[4,8,12,16,20,24,32,40,56].map((v,i)=>`<div style="text-align:center"><div style="width:${v}px;height:${v}px;background:var(--accent);border-radius:2px;margin:0 auto 6px"></div><div class="np-mono" style="font-size:var(--fs-micro);color:var(--fg-muted)">sp-${[1,2,3,4,5,6,8,10,14][i]}<br>${v}</div></div>`).join('');
+
+const btn=document.getElementById('themeBtn');
+function cur(){return document.documentElement.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light')}
+function lab(){btn.textContent=cur()==='dark'?'Modo claro':'Modo oscuro'}
+btn.addEventListener('click',()=>{document.documentElement.setAttribute('data-theme',cur()==='dark'?'light':'dark');lab()});
+lab();
+</script>
+</body>
+</html>

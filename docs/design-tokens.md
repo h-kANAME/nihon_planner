@@ -1,6 +1,9 @@
-# Design tokens — Nihon Planner (kyz + Material)
+# Design tokens — legacy (kyz + Material)
 
-Tokens semánticos con **tema dark** (portfolio [kyz.com.ar](https://kyz.com.ar)) y **tema light** (Material-inspired, contraste WCAG). Código: [`src/theme.js`](../src/theme.js).
+> **Deprecado como SoT.** La fuente de verdad actual es [`../brand_app/`](../brand_app/) (ver [`brand.md`](./brand.md)).  
+> Este documento describe el sistema anterior (verde kyz). El runtime ya cruza a hi-no-maru / paper / Space Grotesk vía `brand_app` + Tailwind.
+
+Tokens semánticos legacy. Código bridge: [`src/theme.js`](../src/theme.js).
 
 ## Modos
 

@@ -79,11 +79,11 @@ Bench:
 npm run bench:ai
 ```
 
-## Design tokens (kyz.com.ar)
+## Brand / estilos
 
-Documentados en `src/theme.js` (dark `#2d2e32` / `#25262a`, acento `#15eb80`, tipografía system-ui). Branding Nihon: hinomaru `#BC002D` en favicon/icons + `public/manifest.webmanifest`.
-
-**Gate de diseño:** revisar pantalla Resumen con los tokens aplicados antes del merge definitivo.
+- **SoT:** [`brand_app/`](./brand_app/) (`tokens.css`, `tokens.json`, brandbook).
+- **Runtime:** Tailwind CSS v4 + bridge `src/theme.js` (hi-no-maru, paper/sumi, Space Grotesk / IBM Plex, light-first).
+- Índice: [`docs/brand.md`](./docs/brand.md). Hinomaru también en favicon / `public/manifest.webmanifest`.
 
 ## Itinerario (Plan)
 

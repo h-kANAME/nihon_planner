@@ -1,38 +1,77 @@
-* { margin: 0; box-sizing: border-box; }
+@import "tailwindcss";
+@import "../brand_app/tokens.css";
 
-:root {
-  --surface: #2d2e32;
-  --surface-dim: #202022;
-  --surface-container: #25262a;
-  --on-surface: #f3f4f6;
-  --on-surface-variant: #9ca3af;
-  --outline: #374151;
-  --primary: #15eb80;
-  --theme-color: #202022;
+/*
+ * Bridge: tokens de brand_app → utilidades Tailwind + aliases legacy
+ * (--surface / --primary) usados por theme.js y CSS residual.
+ */
+@theme {
+  --color-bg: var(--bg);
+  --color-bg-elev: var(--bg-elev);
+  --color-bg-sunken: var(--bg-sunken);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-warn: var(--warn);
+  --color-warn-text: var(--warn-text);
+  --color-warn-soft: var(--warn-soft);
+
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius-lg);
+  --radius-pill: var(--radius-pill);
+
+  --breakpoint-desktop: 900px;
+
+  --shadow-np: var(--shadow);
+  --shadow-np-lg: var(--shadow-lg);
 }
 
-html {
-  color-scheme: dark light;
+/* Aliases legacy para estilos inline / focus residual */
+:root,
+html[data-theme="light"] {
+  --surface: var(--bg);
+  --surface-dim: var(--bg-sunken);
+  --surface-container: var(--bg-elev);
+  --surface-container-high: var(--bg-sunken);
+  --on-surface: var(--fg);
+  --on-surface-variant: var(--fg-muted);
+  --outline: var(--border);
+  --outline-variant: var(--border);
+  --primary: var(--accent);
+  --on-primary: var(--accent-fg);
+  --primary-container: var(--accent-soft);
+  --on-primary-container: var(--accent-text);
+  --secondary: var(--fg-muted);
+  --error: var(--accent-text);
+  --error-container: var(--accent-soft);
+  --hanko: var(--np-maru-600);
+  --elevation-1: var(--shadow);
+  --elevation-2: var(--shadow-lg);
+  --theme-color: var(--bg);
 }
 
-body {
-  background: var(--surface);
-  color: var(--on-surface);
-  -webkit-font-smoothing: antialiased;
-  font-family: Roboto, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+html[data-theme="dark"] {
+  --hanko: var(--np-maru-500);
+}
+
+* {
+  box-sizing: border-box;
 }
 
 button {
   font-family: inherit;
   cursor: pointer;
-}
-
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
 }
 
 input,
@@ -45,19 +84,10 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  border-bottom-color: var(--primary) !important;
+  border-bottom-color: var(--accent) !important;
 }
 
 option {
-  background: var(--surface-container);
-  color: var(--on-surface);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-  }
+  background: var(--bg-elev);
+  color: var(--fg);
 }

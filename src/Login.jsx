@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { C, fonts, radii, S } from "./theme";
+import { C, radii } from "./theme";
 import { api } from "./lib/apiClient";
 
 /**
  * Login con Google Identity Services (ID token only, sin client secret).
  */
-export default function Login({ onSuccess, themeMode = "dark", onToggleTheme }) {
+export default function Login({ onSuccess, themeMode = "light", onToggleTheme }) {
   const btnRef = useRef(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -71,57 +71,32 @@ export default function Login({ onSuccess, themeMode = "dark", onToggleTheme }) 
 
   return (
     <div
+      className="relative flex min-h-screen items-center justify-center bg-bg-sunken p-6 font-sans text-fg"
       style={{
-        minHeight: "100vh",
         background: `radial-gradient(ellipse at 20% 0%, ${C.primaryContainer} 0%, transparent 50%), ${C.surfaceDim}`,
-        color: C.onSurface,
-        fontFamily: fonts.body,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 24,
-        position: "relative",
       }}
     >
       {onToggleTheme && (
         <button
           type="button"
           onClick={onToggleTheme}
-          style={{ ...S.ghost, position: "absolute", top: 12, right: 12 }}
+          className="np-icon-btn absolute top-3 right-3"
           aria-label={themeMode === "light" ? "Tema oscuro" : "Tema claro"}
         >
           {themeMode === "light" ? "暗" : "明"}
         </button>
       )}
-      <div style={{ maxWidth: 360, width: "100%", textAlign: "center" }}>
+      <div className="w-full max-w-[360px] text-center">
         <div
-          style={{
-            width: 72,
-            height: 72,
-            margin: "0 auto 20px",
-            borderRadius: "50%",
-            background: "#fff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            border: `1px solid ${C.outline}`,
-            boxShadow: C.elevation1,
-          }}
+          className="mx-auto mb-5 flex h-[72px] w-[72px] items-center justify-center rounded-full border border-border bg-bg-elev shadow-np"
           aria-hidden
         >
-          <div
-            style={{
-              width: 43,
-              height: 43,
-              borderRadius: "50%",
-              background: C.hanko,
-            }}
-          />
+          <div className="block h-[43px] w-[43px] rounded-full bg-accent" />
         </div>
-        <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: -0.4, margin: "0 0 8px" }}>
+        <h1 className="np-display mb-2 text-[28px] font-semibold tracking-tight">
           Nihon Planner
         </h1>
-        <p style={{ color: C.onSurfaceVariant, fontSize: 14, lineHeight: 1.5, marginBottom: 28 }}>
+        <p className="mb-7 text-sm leading-relaxed text-fg-muted">
           Planificá el viaje a Japón. Entrá con Google — solo mails autorizados.
         </p>
 

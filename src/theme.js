@@ -1,17 +1,18 @@
 /**
- * Design tokens semánticos — kyz.com.ar + Material Design 3 (sin MUI).
- * Dark: portfolio H-kANAME. Light: surface tinted + primary denso (contraste WCAG).
- * Brand: hinomaru #BC002D (solo marca, no estado UI).
+ * Runtime theme bridge → brand_app (SoT).
+ * Tokens canónicos: brand_app/tokens.json + tokens.css
+ * Inline styles (C/S) mapean semántica brand; Tailwind consume las mismas CSS vars.
  */
 
 export const fonts = {
-  display: "Roboto, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif",
-  body: "Roboto, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif",
+  display: "'Space Grotesk', system-ui, -apple-system, sans-serif",
+  body: "'IBM Plex Sans', system-ui, -apple-system, sans-serif",
+  mono: "'IBM Plex Mono', 'SF Mono', Consolas, monospace",
 };
 
 export const radii = {
-  sm: 8,
-  md: 12,
+  sm: 6,
+  md: 10,
   lg: 16,
   pill: 999,
 };
@@ -22,62 +23,70 @@ export const space = {
   md: 12,
   lg: 16,
   xl: 24,
+  xxl: 32,
 };
 
 export const type = {
-  display: { fontSize: 28, fontWeight: 700, letterSpacing: -0.4, lineHeight: 1.2 },
-  title: { fontSize: 22, fontWeight: 700, letterSpacing: -0.3, lineHeight: 1.25 },
-  body: { fontSize: 14, fontWeight: 400, lineHeight: 1.5 },
-  label: { fontSize: 12, fontWeight: 600, letterSpacing: 0.4, lineHeight: 1.3 },
-  caption: { fontSize: 11, fontWeight: 400, lineHeight: 1.4 },
+  display: { fontSize: 28, fontWeight: 600, letterSpacing: -0.5, lineHeight: 1.08 },
+  title: { fontSize: 22, fontWeight: 600, letterSpacing: -0.4, lineHeight: 1.2 },
+  body: { fontSize: 15, fontWeight: 400, lineHeight: 1.55 },
+  label: { fontSize: 11, fontWeight: 600, letterSpacing: 1.6, lineHeight: 1.3 },
+  caption: { fontSize: 12, fontWeight: 400, lineHeight: 1.4 },
 };
 
+/** Paletas alineadas a brand_app primitives / semantics */
 export const themes = {
-  dark: {
-    mode: "dark",
-    surface: "#2d2e32",
-    surfaceDim: "#202022",
-    surfaceContainer: "#25262a",
-    surfaceContainerHigh: "#2f3035",
-    onSurface: "#f3f4f6",
-    onSurfaceVariant: "#9ca3af",
-    outline: "#374151",
-    outlineVariant: "#2a2f36",
-    primary: "#15eb80",
-    onPrimary: "#042016",
-    primaryContainer: "rgba(21, 235, 128, 0.14)",
-    onPrimaryContainer: "#64f4ac",
-    secondary: "#64f4ac",
-    error: "#e57373",
-    onError: "#1a0000",
-    errorContainer: "rgba(229, 115, 115, 0.14)",
-    hanko: "#BC002D",
-    elevation1: "0 1px 3px rgba(0,0,0,0.4)",
-    elevation2: "0 4px 12px rgba(0,0,0,0.5)",
-    themeColor: "#202022",
-  },
   light: {
     mode: "light",
-    surface: "#F4F6F5",
-    surfaceDim: "#E8ECEA",
-    surfaceContainer: "#FFFFFF",
-    surfaceContainerHigh: "#EEF2F0",
-    onSurface: "#1A1C1E",
-    onSurfaceVariant: "#5C6560",
-    outline: "#C5CDC8",
-    outlineVariant: "#E1E8E4",
-    primary: "#0B8F55",
-    onPrimary: "#FFFFFF",
-    primaryContainer: "#C8F7DC",
-    onPrimaryContainer: "#045C38",
-    secondary: "#3D6B5C",
-    error: "#B3261E",
-    onError: "#FFFFFF",
-    errorContainer: "#F9DEDC",
+    surface: "#F5F1E8", // paper-100
+    surfaceDim: "#ECE7DA", // paper-200
+    surfaceContainer: "#FAFAF7", // paper-50
+    surfaceContainerHigh: "#ECE7DA",
+    onSurface: "#2D2E32", // sumi-800
+    onSurfaceVariant: "#6B6D73", // ink-600
+    outline: "#E5E1D3", // paper-300
+    outlineVariant: "#CFC9B8", // paper-400
+    primary: "#BC002D", // maru-600 · acento UI
+    onPrimary: "#FAFAF7",
+    primaryContainer: "rgba(188, 0, 45, 0.08)",
+    onPrimaryContainer: "#BC002D",
+    secondary: "#6B6D73",
+    error: "#BC002D",
+    onError: "#FAFAF7",
+    errorContainer: "rgba(188, 0, 45, 0.08)",
+    warn: "#C97A2B",
+    warnText: "#8F4F0E",
+    warnSoft: "rgba(232, 160, 85, 0.14)",
     hanko: "#BC002D",
-    elevation1: "0 1px 3px rgba(0,0,0,0.08)",
-    elevation2: "0 4px 12px rgba(0,0,0,0.12)",
-    themeColor: "#F4F6F5",
+    elevation1: "0 1px 2px rgba(45,46,50,.04), 0 8px 24px rgba(45,46,50,.06)",
+    elevation2: "0 4px 12px rgba(45,46,50,.08), 0 20px 40px rgba(45,46,50,.10)",
+    themeColor: "#F5F1E8",
+  },
+  dark: {
+    mode: "dark",
+    surface: "#2D2E32", // sumi-800
+    surfaceDim: "#26272B", // sumi-900
+    surfaceContainer: "#34363B", // sumi-700
+    surfaceContainerHigh: "#3E4046", // sumi-600
+    onSurface: "#FAFAF7",
+    onSurfaceVariant: "#A6A8AE", // sumi-300
+    outline: "#3E4046",
+    outlineVariant: "#4E5057",
+    primary: "#E11845", // maru-500
+    onPrimary: "#FAFAF7",
+    primaryContainer: "rgba(225, 24, 69, 0.14)",
+    onPrimaryContainer: "#FF7F99", // maru-300 (AA sobre sumi)
+    secondary: "#A6A8AE",
+    error: "#FF7F99",
+    onError: "#26272B",
+    errorContainer: "rgba(225, 24, 69, 0.14)",
+    warn: "#E8A055",
+    warnText: "#E8A055",
+    warnSoft: "rgba(232, 160, 85, 0.16)",
+    hanko: "#E11845",
+    elevation1: "0 1px 2px rgba(0,0,0,.20), 0 8px 24px rgba(0,0,0,.30)",
+    elevation2: "0 4px 12px rgba(0,0,0,.30), 0 20px 40px rgba(0,0,0,.40)",
+    themeColor: "#2D2E32",
   },
 };
 
@@ -96,7 +105,7 @@ function withAliases(t) {
     matcha: t.secondary,
     indigo: t.primary,
     danger: t.error,
-    warnBg: t.errorContainer,
+    warnBg: t.warnSoft || t.errorContainer,
     inputBg: t.surfaceDim,
     success: t.primary,
   };
@@ -104,15 +113,16 @@ function withAliases(t) {
 
 const STORAGE_KEY = "nihon-theme";
 
+/** Light-first (brand_app); respeta preferencia guardada / SO. */
 export function resolveInitialMode() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === "light" || saved === "dark") return saved;
   } catch { /* */ }
-  if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: light)").matches) {
-    return "light";
+  if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches) {
+    return "dark";
   }
-  return "dark";
+  return "light";
 }
 
 export function persistMode(mode) {
@@ -122,50 +132,29 @@ export function persistMode(mode) {
 }
 
 export function getTheme(mode) {
-  return withAliases(themes[mode === "light" ? "light" : "dark"]);
+  return withAliases(themes[mode === "dark" ? "dark" : "light"]);
 }
 
 export function applyCssVars(theme) {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   root.setAttribute("data-theme", theme.mode);
-  const map = {
-    "--surface": theme.surface,
-    "--surface-dim": theme.surfaceDim,
-    "--surface-container": theme.surfaceContainer,
-    "--surface-container-high": theme.surfaceContainerHigh,
-    "--on-surface": theme.onSurface,
-    "--on-surface-variant": theme.onSurfaceVariant,
-    "--outline": theme.outline,
-    "--outline-variant": theme.outlineVariant,
-    "--primary": theme.primary,
-    "--on-primary": theme.onPrimary,
-    "--primary-container": theme.primaryContainer,
-    "--on-primary-container": theme.onPrimaryContainer,
-    "--secondary": theme.secondary,
-    "--error": theme.error,
-    "--error-container": theme.errorContainer,
-    "--hanko": theme.hanko,
-    "--elevation-1": theme.elevation1,
-    "--elevation-2": theme.elevation2,
-    "--theme-color": theme.themeColor,
-  };
-  for (const [k, v] of Object.entries(map)) root.style.setProperty(k, v);
+  // brand_app/tokens.css reacciona a data-theme; aliases legacy vía index.css
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute("content", theme.themeColor);
 }
 
-/** Estilos Material-inspired derivados del tema activo */
+/** Estilos derivados del tema (bridge hacia Tailwind + layout desktop/mobile). */
 export function buildStyles(C, isDesktop = false) {
   return {
     app: {
       minHeight: "100vh",
-      background: `radial-gradient(ellipse at 80% -10%, ${C.primaryContainer} 0%, transparent 45%), ${C.surface}`,
+      background: C.surface,
       color: C.onSurface,
       fontFamily: fonts.body,
       ...(isDesktop
-        ? { maxWidth: "none", margin: 0, paddingLeft: 232, paddingBottom: 32 }
-        : { maxWidth: 520, margin: "0 auto", paddingBottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }),
+        ? { maxWidth: "none", margin: 0, paddingLeft: 264, paddingBottom: 32 }
+        : { maxWidth: 520, margin: "0 auto", paddingBottom: "calc(64px + env(safe-area-inset-bottom, 0px))" }),
     },
     header: {
       display: "flex",
@@ -174,21 +163,26 @@ export function buildStyles(C, isDesktop = false) {
       padding: isDesktop ? "24px 0 12px" : "16px 16px 10px",
     },
     eyebrow: {
-      ...type.caption,
-      letterSpacing: 2,
+      fontFamily: fonts.mono,
+      fontSize: 11,
+      fontWeight: 500,
+      letterSpacing: "0.14em",
       textTransform: "uppercase",
-      color: C.secondary,
+      color: C.onSurfaceVariant,
     },
     title: {
       margin: "2px 0 0",
-      ...type.title,
-      fontSize: 24,
+      fontFamily: fonts.display,
+      fontSize: 22,
+      fontWeight: 600,
+      letterSpacing: "-0.03em",
+      lineHeight: 1.2,
     },
     stamp: {
       width: 44,
       height: 44,
       borderRadius: "50%",
-      background: "#fff",
+      background: C.surfaceContainer,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
@@ -198,7 +192,7 @@ export function buildStyles(C, isDesktop = false) {
     hinomaru: {
       width: 26,
       height: 26,
-      borderRadius: "50%",
+      borderRadius: 50,
       background: C.hanko,
       display: "block",
     },
@@ -212,10 +206,11 @@ export function buildStyles(C, isDesktop = false) {
       maxWidth: 520,
       display: "flex",
       background: C.surfaceContainer,
-      borderTop: `1px solid ${C.outlineVariant}`,
+      borderTop: `1px solid ${C.outline}`,
       boxShadow: C.elevation1,
       padding: "6px 0 max(10px, env(safe-area-inset-bottom, 0px))",
-      zIndex: 20,
+      zIndex: 30,
+      minHeight: 64,
     },
     navBtn: {
       flex: 1,
@@ -246,17 +241,19 @@ export function buildStyles(C, isDesktop = false) {
       background: C.primary,
     },
     label: {
-      ...type.label,
-      letterSpacing: 1.2,
+      fontFamily: fonts.mono,
+      fontSize: 10,
+      fontWeight: 600,
+      letterSpacing: "0.16em",
       textTransform: "uppercase",
-      color: C.secondary,
+      color: C.onSurfaceVariant,
       marginBottom: 10,
     },
     input: {
       width: "100%",
       boxSizing: "border-box",
       padding: "12px 14px",
-      fontSize: 14,
+      fontSize: 15,
       border: "none",
       borderBottom: `2px solid ${C.outline}`,
       borderRadius: `${radii.sm}px ${radii.sm}px 0 0`,
@@ -272,9 +269,9 @@ export function buildStyles(C, isDesktop = false) {
       background: C.primary,
       color: C.onPrimary,
       border: "none",
-      borderRadius: radii.md,
+      borderRadius: radii.sm,
       fontSize: 14,
-      fontWeight: 700,
+      fontWeight: 500,
       cursor: "pointer",
       marginTop: 4,
       minHeight: 48,
@@ -284,11 +281,11 @@ export function buildStyles(C, isDesktop = false) {
     secondary: {
       padding: "10px 14px",
       background: "transparent",
-      color: C.primary,
+      color: C.onSurface,
       border: `1px solid ${C.outline}`,
-      borderRadius: radii.md,
-      fontSize: 12,
-      fontWeight: 600,
+      borderRadius: radii.sm,
+      fontSize: 13,
+      fontWeight: 500,
       cursor: "pointer",
       minHeight: 44,
       touchAction: "manipulation",
@@ -323,38 +320,38 @@ export function buildStyles(C, isDesktop = false) {
       borderColor: "transparent",
     },
     warn: {
-      background: C.errorContainer,
-      border: `1px solid ${C.error}`,
-      color: C.error,
-      fontSize: 12,
+      background: C.warnSoft || C.errorContainer,
+      border: `1px solid ${C.warn || C.error}`,
+      color: C.warnText || C.error,
+      fontSize: 13,
       padding: "10px 12px",
-      borderRadius: radii.sm,
+      borderRadius: radii.md,
       marginBottom: 10,
       lineHeight: 1.4,
     },
     card: {
       background: C.surfaceContainer,
-      border: `1px solid ${C.outlineVariant}`,
-      borderRadius: radii.lg,
+      border: `1px solid ${C.outline}`,
+      borderRadius: radii.md,
       padding: isDesktop ? 20 : 16,
       marginBottom: 12,
       boxShadow: C.elevation1,
     },
     content: isDesktop
-      ? { maxWidth: 1120, margin: "0 auto", padding: "0 32px 40px" }
+      ? { maxWidth: 920, margin: "0 auto", padding: "0 32px 40px" }
       : {},
     rail: {
       position: "fixed",
       top: 0,
       bottom: 0,
       left: 0,
-      width: 232,
+      width: 264,
       display: "flex",
       flexDirection: "column",
       gap: 8,
       padding: "20px 12px",
       background: C.surfaceContainer,
-      borderRight: `1px solid ${C.outlineVariant}`,
+      borderRight: `1px solid ${C.outline}`,
       zIndex: 30,
       overflowY: "auto",
     },
@@ -364,7 +361,7 @@ export function buildStyles(C, isDesktop = false) {
       alignItems: "center",
       padding: "0 8px 14px",
       marginBottom: 6,
-      borderBottom: `1px solid ${C.outlineVariant}`,
+      borderBottom: `1px solid ${C.outline}`,
     },
     railNav: { display: "flex", flexDirection: "column", gap: 4, flex: 1 },
     railBtn: {
@@ -372,13 +369,13 @@ export function buildStyles(C, isDesktop = false) {
       display: "flex",
       gap: 10,
       alignItems: "center",
-      padding: "10px 12px",
-      borderRadius: 10,
+      padding: "8px 10px",
+      borderRadius: radii.sm,
       border: "none",
       background: "none",
       color: C.onSurfaceVariant,
-      fontSize: 13,
-      fontWeight: 500,
+      fontSize: 14,
+      fontWeight: 400,
       minHeight: 44,
       position: "relative",
       textAlign: "left",
@@ -387,7 +384,7 @@ export function buildStyles(C, isDesktop = false) {
     railBtnActive: {
       color: C.onPrimaryContainer,
       background: C.primaryContainer,
-      fontWeight: 700,
+      fontWeight: 500,
     },
     railIndicator: {
       position: "absolute",
@@ -403,7 +400,7 @@ export function buildStyles(C, isDesktop = false) {
       display: "flex",
       gap: 4,
       paddingTop: 12,
-      borderTop: `1px solid ${C.outlineVariant}`,
+      borderTop: `1px solid ${C.outline}`,
     },
     grid: {
       display: "grid",
@@ -417,7 +414,7 @@ export function buildStyles(C, isDesktop = false) {
 }
 
 /** Live bindings — actualizar con applyTheme() en cada render de App */
-export let C = getTheme("dark");
+export let C = getTheme("light");
 export let S = buildStyles(C);
 
 export function applyTheme(mode, isDesktop = false) {
@@ -427,4 +424,4 @@ export function applyTheme(mode, isDesktop = false) {
   return C;
 }
 
-export const themeColor = themes.dark.themeColor;
+export const themeColor = themes.light.themeColor;

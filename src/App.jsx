@@ -10,7 +10,7 @@ import { useIsDesktop } from "./lib/viewport";
 
 /* ============================================================
    NIHON PLANNER — Viaje a Japón (20 días, pareja, ARS/USD/JPY)
-   Tokens: kyz + Material (light/dark) + hinomaru.
+   Tokens: brand_app (hi-no-maru / paper / Space Grotesk) vía theme.js + Tailwind.
    ============================================================ */
 
 function PowerIcon() {
@@ -116,6 +116,7 @@ function NavItem({ id, kanji, label, active, onClick, isDesktop }) {
       type="button"
       onClick={() => onClick(id)}
       aria-current={active ? "page" : undefined}
+      className={isDesktop ? `np-nav-item${active ? " is-active" : ""}` : undefined}
       style={{ ...(isDesktop ? S.railBtn : S.navBtn), ...(active ? (isDesktop ? S.railBtnActive : S.navBtnActive) : {}) }}
     >
       {active && <span style={isDesktop ? S.railIndicator : S.navIndicator} aria-hidden />}
@@ -226,8 +227,8 @@ export default function App() {
 
   if (!authChecked) {
     return (
-      <div style={{ ...S.app, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <div style={{ color: C.onSurfaceVariant, fontSize: 14, letterSpacing: 2 }}>準備中 · cargando…</div>
+      <div className="flex min-h-screen items-center justify-center bg-bg text-fg-muted font-sans tracking-[0.14em] text-sm">
+        準備中 · cargando…
       </div>
     );
   }
@@ -244,21 +245,21 @@ export default function App() {
 
   if (!ready) {
     return (
-      <div style={{ ...S.app, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <div style={{ color: C.onSurfaceVariant, fontSize: 14, letterSpacing: 2 }}>準備中 · cargando…</div>
+      <div className="flex min-h-screen items-center justify-center bg-bg text-fg-muted font-sans tracking-[0.14em] text-sm">
+        準備中 · cargando…
       </div>
     );
   }
 
   return (
-    <div style={S.app}>
+    <div style={S.app} className="min-h-screen bg-bg text-fg font-sans">
       {isDesktop && (
-        <aside style={S.rail}>
+        <aside style={S.rail} className="border-border bg-bg-elev shadow-np">
           <div style={S.railBrand}>
             <div style={S.stamp} title="Hinomaru" aria-hidden>
               <span style={S.hinomaru} />
             </div>
-            <div style={{ fontSize: 16, fontWeight: 700, whiteSpace: "nowrap" }}>Nihon Planner</div>
+            <div className="font-display text-base font-semibold tracking-tight whitespace-nowrap">Nihon Planner</div>
           </div>
           <nav aria-label="Principal" style={S.railNav}>
             {NAV.map(([id, kanji, label]) => (
@@ -268,7 +269,7 @@ export default function App() {
           <div style={S.railFooter}>
             <button
               type="button"
-              style={S.ghost}
+              className="np-icon-btn"
               onClick={toggleTheme}
               title={themeMode === "light" ? "Tema oscuro" : "Tema claro"}
               aria-label={themeMode === "light" ? "Cambiar a tema oscuro" : "Cambiar a tema claro"}
@@ -277,7 +278,7 @@ export default function App() {
             </button>
             <button
               type="button"
-              style={S.ghost}
+              className="np-icon-btn"
               onClick={logout}
               title={`Cerrar sesión (${user.email})`}
               aria-label="Cerrar sesión"
@@ -288,17 +289,17 @@ export default function App() {
         </aside>
       )}
 
-      <div style={S.content}>
+      <div style={S.content} className={isDesktop ? "max-w-[var(--content-max)] mx-auto" : undefined}>
         <header style={S.header}>
           <div>
-            <div style={S.eyebrow}>日本 · 20 días · dos viajeros</div>
-            <h1 style={S.title}>{isDesktop ? activeLabel : "Nihon Planner"}</h1>
+            <div className="np-eyebrow">日本 · 20 días · dos viajeros</div>
+            <h1 style={S.title} className="np-display">{isDesktop ? activeLabel : "Nihon Planner"}</h1>
           </div>
           {!isDesktop && (
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <div className="flex items-center gap-1">
               <button
                 type="button"
-                style={S.ghost}
+                className="np-icon-btn"
                 onClick={toggleTheme}
                 title={themeMode === "light" ? "Tema oscuro" : "Tema claro"}
                 aria-label={themeMode === "light" ? "Cambiar a tema oscuro" : "Cambiar a tema claro"}
@@ -307,7 +308,7 @@ export default function App() {
               </button>
               <button
                 type="button"
-                style={S.ghost}
+                className="np-icon-btn"
                 onClick={logout}
                 title={`Cerrar sesión (${user.email})`}
                 aria-label="Cerrar sesión"
@@ -321,7 +322,7 @@ export default function App() {
           )}
         </header>
 
-        <main style={S.main}>
+        <main style={S.main} className="font-sans">
           {tab === "resumen" && (
             <Resumen
               totals={totals}
