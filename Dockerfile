@@ -27,7 +27,11 @@ CMD ["npm", "run", "dev:docker"]
 FROM deps AS build
 COPY . .
 ARG VITE_GOOGLE_CLIENT_ID=
+ARG VITE_MAP_STYLE_LIGHT=
+ARG VITE_MAP_STYLE_DARK=
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+ENV VITE_MAP_STYLE_LIGHT=$VITE_MAP_STYLE_LIGHT
+ENV VITE_MAP_STYLE_DARK=$VITE_MAP_STYLE_DARK
 RUN npm run build
 
 # ---- production ----
@@ -42,6 +46,8 @@ RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit
 
 COPY server ./server
 COPY shared ./shared
+# server/routes importa ../../src/lib/locations.js en runtime
+COPY src ./src
 COPY --from=build /app/dist ./dist
 
 RUN mkdir -p /app/data && chown -R nihon:nihon /app/data
