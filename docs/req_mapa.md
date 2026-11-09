@@ -198,7 +198,7 @@ Devuelve:
 |---|---|---|---|
 | 1 | Decimal | `35.7147651, 139.7966553` | Separador `,`, `;` o espacio; orden **lat, lng**. Un solo número → error. |
 | 2 | DMS | `35°42'53.2"N 139°47'47.9"E` | Hemisferio S/W → negativo. |
-| 3 | URL completa | `…/maps/place/Senso-ji/@35.71,139.79,17z/data=…!3d35.7147651!4d139.7966553` | Prioridad `!3d!4d` → `precision: 'place'`. Luego `?q=`, `query=`, `ll=`, `destination=` con lat,lng → `place`. Al final `@lat,lng` (centro de vista) → `precision: 'view'` + warning "coordenada aproximada". |
+| 3 | URL completa | `…/maps/place/Senso-ji/@35.71,139.79,17z/data=…!3d35.7147651!4d139.7966553` | Prioridad `!3d!4d` → `precision: 'place'`. Si el `pb` trae varios pares (centro de vista `!1m5` + lugar `!3m5`), se usa el **último**, que es el lugar. Luego `?q=`, `query=`, `ll=`, `destination=` con lat,lng → `place`. Al final `@lat,lng` (centro de vista) → `precision: 'view'` + warning "coordenada aproximada". |
 | 4 | Plus Code global | `8Q7XPQ7W+V2` | Decodificación local. |
 | 5 | Plus Code corto | `PQ7W+V2 Taito City, Tokyo` | `recoverNearest(reference)`. Sin `reference` → error pidiendo el código completo. Si la distancia al punto de referencia supera 25 km → warning `SHORT_CODE_FAR`. |
 
@@ -387,6 +387,7 @@ La guarda mira **datos, no cabeceras**: un MD con la columna presente pero todas
 
 - URLs por env, con default: `VITE_MAP_STYLE_LIGHT=https://tiles.openfreemap.org/styles/positron`, `VITE_MAP_STYLE_DARK=https://tiles.openfreemap.org/styles/dark`.
 - **Recoloreo en runtime:** al crear el mapa se hace `fetch` del estilo, se sobrescriben las capas de fondo, agua y vías leyendo `--bg`, `--bg-sunken`, `--fg-muted`, `--border` con `getComputedStyle`. El resto del estilo queda como viene. `glyphs` y `sprite` se mantienen.
+- **Dark legible:** las vías bajan su opacidad (0.38; casing 0.65) y los labels usan `text-color: --fg` + halo `--bg` (≥1.2). El estilo dark de OpenFreeMap trae labels oscuros pensados para su fondo casi negro; sobre el sumi de marca no se leían. No se toca `text-field`.
 - Cambio de tema → `map.setStyle(nuevoEstilo)` y se re-crean marcadores y trazo.
 - **Marcadores:** colores desde variables CSS (`--accent` seleccionado, `--fg`/`--bg` numeración, `--warn` alojamiento), tipografía IBM Plex Mono en los números.
 - **No se overridea `text-field`.** Atribución OSM/OpenFreeMap visible (la agrega MapLibre).
@@ -464,7 +465,7 @@ Las coordenadas existen **solo** en la DB. Un import de un MD viejo (sin columna
 
 | Área | Tests |
 |---|---|
-| Parser | Fixtures reales de los 5 formatos, lat/lng invertidas → warning, basura → error, `!3d!4d` gana sobre `@`, `@` marca `precision: 'view'`, `35,7` → error, URL con `@lat,lng` no capturada por la regla decimal |
+| Parser | Fixtures reales de los 5 formatos, lat/lng invertidas → warning, basura → error, `!3d!4d` gana sobre `@`, `@` marca `precision: 'view'`, `35,7` → error, URL con `@lat,lng` no capturada por la regla decimal, pb con lugar + centro → bloque del lugar, pares fuera de rango → se ignoran |
 | Plus Code | Global, corto con referencia cercana, corto lejos → `SHORT_CODE_FAR`, sin referencia → error |
 | Invariantes | `mode=coords` sin `raw_input` → `400`; `mode=not_applicable` limpia coordenadas; rango de `lat`/`lng` |
 | Concurrencia | Dos `PUT location` con la misma `version` → el segundo recibe `409` con `current` |
