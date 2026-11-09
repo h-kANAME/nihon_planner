@@ -22,7 +22,23 @@ const DMS_COORD =
 const DMS_FULL_RE =
   /^\s*\d{1,3}(?:°|º|\s)\s*\d{1,2}(?:'|’|′|\s)\s*\d{1,2}(?:\.\d+)?(?:"|”|″)?\s*[NS]\s+[,\s]*\d{1,3}(?:°|º|\s)\s*\d{1,2}(?:'|’|′|\s)\s*\d{1,2}(?:\.\d+)?(?:"|”|″)?\s*[EW]\s*$/i;
 
-const PLACE_MARKER_RE = /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/i;
+// El pb puede traer más de un par: centro de vista (!1m5) y lugar (!3m5).
+// Preferimos el bloque con place id (!1s...!8m2!3d!4d); el centro de la vista
+// puede estar a cientos de metros. Fallback: último par !3d!4d válido.
+// `g` es solo para matchAll; no usar .exec/.test sobre estas constantes.
+const PLACE_BLOCK_RE = /!1s[^!]*!8m2!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/gi;
+const PLACE_MARKERS_RE = /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/gi;
+
+function validWorldCoords(lat, lng) {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
+}
 const AT_COORDS_RE = /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/;
 const QUERY_COORDS_RE =
   /(?:[?&](?:q|query|ll|destination)=)(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/i;
@@ -161,17 +177,25 @@ function tryUrl(raw) {
   if (!looksLikeMapsUrl(raw)) return null;
 
   const suggested_name = extractSuggestedName(raw);
-  const place = PLACE_MARKER_RE.exec(raw);
-  if (place) {
-    const lat = Number(place[1]);
-    const lng = Number(place[2]);
+  const candidates = (re) =>
+    [...raw.matchAll(re)]
+      .map((m) => ({ lat: Number(m[1]), lng: Number(m[2]) }))
+      .filter((c) => validWorldCoords(c.lat, c.lng));
+  const placeBlocks = candidates(PLACE_BLOCK_RE);
+  const markers = candidates(PLACE_MARKERS_RE);
+  const pair = placeBlocks.length
+    ? placeBlocks[placeBlocks.length - 1]
+    : markers.length
+      ? markers[markers.length - 1]
+      : null;
+  if (pair) {
     return okResult({
-      lat,
-      lng,
+      lat: pair.lat,
+      lng: pair.lng,
       source: "url",
       precision: "place",
       suggested_name,
-      warnings: japanWarnings(lat, lng, []),
+      warnings: japanWarnings(pair.lat, pair.lng, []),
     });
   }
 

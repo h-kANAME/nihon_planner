@@ -68,6 +68,44 @@ test("!3d!4d gana sobre @ en la misma URL", () => {
   assert.equal(result.lng, 139.7966553);
 });
 
+test("pb con centro de vista y lugar usa el lugar (último !3d!4d)", () => {
+  const input =
+    "https://www.google.com/maps/place/NoEscape%E6%B1%A0%E8%A2%8B%E5%BA%97+%E3%83%AA%E3%82%A2%E3%83%AB%E4%BD%93%E9%A8%93%E8%84%B1%E5%87%BA%E3%82%B2%E3%83%BC%E3%83%A0/@35.732595,139.716185,17z/data=!4m12!1m5!3m4!2zMzXCsDQzJzU3LjMiTiAxMznCsDQyJzU4LjMiRQ!8m2!3d35.732595!4d139.716185!3m5!1s0x60188da846bd7b73:0x7f37802c1dd3bf2d!8m2!3d35.7352091!4d139.7156275!16s%2Fg%2F11h02c6t0r?entry=ttu";
+  const result = parseLocationInput(input);
+  assert.equal(result.ok, true);
+  assert.equal(result.source, "url");
+  assert.equal(result.precision, "place");
+  assert.equal(result.lat, 35.7352091);
+  assert.equal(result.lng, 139.7156275);
+  assert.equal(result.suggested_name, "NoEscape池袋店 リアル体験脱出ゲーム");
+});
+
+test("prefiere el bloque de lugar aunque haya otro par después", () => {
+  const input =
+    "https://www.google.com/maps/place/Foo/@35.71,139.79,17z/data=!3m5!1s0xabc:0xdef!8m2!3d35.7352091!4d139.7156275!1m5!3m4!2zX!8m2!3d35.732595!4d139.716185";
+  const result = parseLocationInput(input);
+  assert.equal(result.ok, true);
+  assert.equal(result.lat, 35.7352091);
+  assert.equal(result.lng, 139.7156275);
+});
+
+test("ignora pares fuera de rango en URLs", () => {
+  const input =
+    "https://www.google.com/maps/place/Foo/data=!3d35.7!4d139.7!3d999!4d999";
+  const result = parseLocationInput(input);
+  assert.equal(result.ok, true);
+  assert.equal(result.lat, 35.7);
+  assert.equal(result.lng, 139.7);
+});
+
+test("URL con todos los pares fuera de rango → error", () => {
+  const result = parseLocationInput(
+    "https://www.google.com/maps/place/Foo/data=!3d999!4d999",
+  );
+  assert.equal(result.ok, false);
+  assert.match(result.error, /coordenadas reconocibles|fuera de rango/i);
+});
+
 test("query= con lat,lng → place", () => {
   const result = parseLocationInput(
     "https://www.google.com/maps?q=34.9948561,135.785088",
