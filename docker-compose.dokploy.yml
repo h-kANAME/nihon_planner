@@ -1,9 +1,9 @@
 # docker-compose.dokploy.yml
 # Dokploy → Compose Path: ./docker-compose.dokploy.yml
-# Domain → Host: nipon.trip · Service: nihonweb · Port: 8787 · HTTPS / Let's Encrypt
+# Domain → Host: nipon.trip.kyz-apps.site · Service: nihonweb · Port: 8787 · HTTPS / Let's Encrypt
 #
 # Env requeridas en Dokploy (no usar env_file en prod):
-#   FRONTEND_ORIGIN=https://nipon.trip
+#   FRONTEND_ORIGIN=https://nipon.trip.kyz-apps.site
 #   COOKIE_SECURE=true
 #   GOOGLE_CLIENT_ID / VITE_GOOGLE_CLIENT_ID (build arg + runtime)
 #   ALLOWED_EMAILS
@@ -29,7 +29,7 @@ services:
       SERVE_STATIC: "true"
       STATIC_DIR: dist
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
-      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-https://nipon.trip}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-https://nipon.trip.kyz-apps.site}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
       ALLOWED_EMAILS: ${ALLOWED_EMAILS}
