@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseLocationInput } from "../../shared/location-parse.mjs";
+import { mapsUrlFromRaw, parseLocationInput } from "../../shared/location-parse.mjs";
 import { decode, encode, recoverNearest } from "../../shared/pluscode.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -56,6 +56,16 @@ test("URL con @lat,lng no la captura la regla decimal", () => {
   assert.equal(result.ok, true);
   assert.equal(result.source, "url");
   assert.equal(result.precision, "view");
+});
+
+test("mapsUrlFromRaw conserva la ficha y descarta el tracking", () => {
+  const raw =
+    "https://www.google.com/maps/place/Hotel+Clio+Higashiguchi-ten/@35.7325993,139.7136101,17z/data=!4m9!3m8!1s0x60188d6687aea00f:0xde0815219a7206b9!5m2!4m1!1i2!8m2!3d35.732595!4d139.716185!16s%2Fg%2F1tfkw95s?entry=ttu&g_ep=abc&skid=session";
+  assert.equal(
+    mapsUrlFromRaw(raw),
+    "https://www.google.com/maps/place/Hotel+Clio+Higashiguchi-ten/@35.7325993,139.7136101,17z/data=!4m9!3m8!1s0x60188d6687aea00f:0xde0815219a7206b9!5m2!4m1!1i2!8m2!3d35.732595!4d139.716185!16s%2Fg%2F1tfkw95s",
+  );
+  assert.equal(mapsUrlFromRaw("35.732595, 139.716185"), null);
 });
 
 test("!3d!4d gana sobre @ en la misma URL", () => {

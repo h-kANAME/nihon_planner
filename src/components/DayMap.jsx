@@ -16,20 +16,27 @@ const LINE_LAYER = "day-stops-line-layer";
 const FIT_PADDING = { top: 48, bottom: 56, left: 48, right: 48 };
 const FIT_MAX_ZOOM = 15;
 
-// Función, no constante: S cambia con el tema y una constante quedaría con los
-// colores del tema inicial (texto oscuro sobre mapa oscuro).
-const mapLinkStyle = () => ({
-  ...S.secondary,
+// Colores del botón via `.np-map-action` en index.css (light/dark).
+// No usar S.secondary: queda pegado al tema del primer render.
+const mapLinkStyle = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
   textDecoration: "none",
   marginTop: 0,
   padding: "8px 12px",
-  fontSize: 12,
+  fontSize: 13,
+  fontWeight: 500,
+  lineHeight: 1.2,
+  fontFamily: "inherit",
   minHeight: 44,
   boxSizing: "border-box",
-});
+  background: "transparent",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm, 6px)",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
 
 /**
  * @param {'stop'|'stay'} kind
@@ -690,18 +697,30 @@ export function DayMap({
                       href={popup.directionsUrl}
                       target="_blank"
                       rel="noopener"
-                      style={mapLinkStyle()}
+                      className="np-map-action"
+                      style={mapLinkStyle}
                     >
                       Cómo llegar
                     </a>
                   ) : null}
                   {popup.searchUrl ? (
-                    <a href={popup.searchUrl} target="_blank" rel="noopener" style={mapLinkStyle()}>
+                    <a
+                      href={popup.searchUrl}
+                      target="_blank"
+                      rel="noopener"
+                      className="np-map-action"
+                      style={mapLinkStyle}
+                    >
                       Ver lugar
                     </a>
                   ) : null}
                   {selected.kind === "stay" && typeof onLocateStay === "function" ? (
-                    <button type="button" style={mapLinkStyle()} onClick={onLocateStay}>
+                    <button
+                      type="button"
+                      className="np-map-action"
+                      style={mapLinkStyle}
+                      onClick={onLocateStay}
+                    >
                       {locateCtaLabel(true, "stay")}
                     </button>
                   ) : null}
@@ -710,7 +729,8 @@ export function DayMap({
                   typeof onLocateStop === "function" ? (
                     <button
                       type="button"
-                      style={mapLinkStyle()}
+                      className="np-map-action"
+                      style={mapLinkStyle}
                       onClick={() => onLocateStop(selected.stop)}
                     >
                       {locateCtaLabel(true, "stop")}

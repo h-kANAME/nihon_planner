@@ -146,6 +146,38 @@ test("replaceItinerary y GET: hubs inherit_stay; sin raw_input", () => {
     updated_at: "",
   });
   assert.ok(!("raw_input" in mapped));
+  assert.ok(!("maps_url" in mapped));
+  const place = mapStop({
+    ...{
+      id: "s2",
+      day_id: "d",
+      sort_order: 0,
+      detail: "",
+      how_to_get: "",
+      est_duration: "",
+      notes: "",
+      kind: "stop",
+      done: 0,
+      lat: 35.732595,
+      lng: 139.716185,
+      location_mode: "coords",
+      location_precision: "place",
+      version: 1,
+      created_at: "",
+      updated_at: "",
+    },
+    name: "Hotel Clio Higashiguchi-ten",
+    raw_input:
+      "https://www.google.com/maps/place/Hotel+Clio+Higashiguchi-ten/@35.7325993,139.7136101,17z/data=!3d35.732595!4d139.716185?entry=ttu",
+  });
+  assert.ok(!("raw_input" in place));
+  assert.equal(place.name, "Hotel Clio Higashiguchi-ten");
+  assert.equal(place.lat, 35.732595);
+  assert.equal(place.lng, 139.716185);
+  assert.equal(
+    place.maps_url,
+    "https://www.google.com/maps/place/Hotel+Clio+Higashiguchi-ten/@35.7325993,139.7136101,17z/data=!3d35.732595!4d139.716185",
+  );
   assert.deepEqual(
     Object.keys(mapDay({
       id: "d",

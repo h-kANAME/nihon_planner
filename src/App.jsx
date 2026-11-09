@@ -13,8 +13,10 @@ import {
   locateCtaLabel,
   locationProgress,
   mapsDirectionsForStop,
+  mapsSearch,
   mapsSearchForStop,
   stayLocationMode,
+  stayLodgingSearchQuery,
 } from "./lib/locations";
 import { LocationBadge, LocationProgressBadge } from "./components/LocationBadge.jsx";
 import { LocationPicker } from "./components/LocationPicker.jsx";
@@ -2287,10 +2289,23 @@ function ItineraryDaySheet({
               precision={day?.stay_precision}
               kind="stay"
             />
+            <a
+              href={mapsSearch(stayLodgingSearchQuery(day))}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ ...locateBtn, textDecoration: "none", display: "inline-flex", alignItems: "center" }}
+            >
+              Buscar alojamientos
+            </a>
             <button type="button" style={locateBtn} disabled={busy} onClick={onLocateStay}>
               {locateCtaLabel(stayLocationMode(day) === "coords", "stay")}
             </button>
           </div>
+          {stayLocationMode(day) !== "coords" && (
+            <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginTop: 6, lineHeight: 1.4 }}>
+              Falta el pin de donde dormís. La parada del hotel no lo marca.
+            </div>
+          )}
         </div>
       )}
 
@@ -2318,6 +2333,11 @@ function ItineraryDaySheet({
                       kind="stop"
                     />
                   </div>
+                  {stop.lat != null && stop.lng != null && (
+                    <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginTop: 2, fontFamily: "var(--font-mono)" }}>
+                      {stop.lat}, {stop.lng}
+                    </div>
+                  )}
                   <Meta>{[stop.how_to_get, stop.est_duration, stop.detail].filter(Boolean).join(" · ")}</Meta>
                 </div>
                 <button type="button" aria-label={stopLabel("Subir parada")} style={{ ...S.ghost, minWidth: 44, minHeight: 44 }} disabled={busy || i === 0} onClick={() => onMoveStop(stop, -1)}>↑</button>

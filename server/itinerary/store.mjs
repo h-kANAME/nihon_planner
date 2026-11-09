@@ -1,5 +1,6 @@
 import { uid } from "../db.mjs";
 import { parseJson } from "../helpers.mjs";
+import { mapsUrlFromRaw } from "../../shared/location-parse.mjs";
 
 const DEFAULT_META = {
   title: "",
@@ -227,6 +228,7 @@ function stayFieldsFromTrustedDay(d) {
 }
 
 export function mapStop(row) {
+  const mapsUrl = mapsUrlFromRaw(row.raw_input);
   return {
     id: row.id,
     day_id: row.day_id,
@@ -242,6 +244,7 @@ export function mapStop(row) {
     lng: row.lng ?? null,
     location_mode: row.location_mode ?? "pending",
     location_precision: row.location_precision ?? null,
+    ...(mapsUrl ? { maps_url: mapsUrl } : {}),
     version: row.version ?? 1,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -249,6 +252,7 @@ export function mapStop(row) {
 }
 
 export function mapDay(row, stops = []) {
+  const stayMapsUrl = mapsUrlFromRaw(row.stay_raw_input);
   return {
     id: row.id,
     day_number: row.day_number,
@@ -261,6 +265,7 @@ export function mapDay(row, stops = []) {
     stay_lat: row.stay_lat ?? null,
     stay_lng: row.stay_lng ?? null,
     stay_precision: row.stay_precision ?? null,
+    ...(stayMapsUrl ? { stay_maps_url: stayMapsUrl } : {}),
     version: row.version ?? 1,
     stops: stops.map(mapStop),
     created_at: row.created_at,

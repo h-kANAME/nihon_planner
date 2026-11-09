@@ -109,9 +109,19 @@ export function dayHasPendingLocations(day) {
  */
 export function locateCtaLabel(resolved, kind = "stop") {
   if (kind === "stay") {
-    return resolved ? "Cambiar alojamiento" : "Ubicar alojamiento";
+    return resolved ? "Cambiar dónde dormís" : "Marcar dónde dormís";
   }
   return resolved ? "Cambiar ubicación" : "Ubicar";
+}
+
+/**
+ * Búsqueda de alojamiento en Maps. No marca el pin del día.
+ * @param {object|null|undefined} day
+ */
+export function stayLodgingSearchQuery(day) {
+  const raw = String(day?.base || day?.stay_label || "").trim();
+  const place = raw.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  return place ? `alojamiento en ${place}, Japón` : "alojamiento en Japón";
 }
 
 /**
@@ -212,14 +222,27 @@ function formatMapsPoint(point) {
   return String(point);
 }
 
+/** Par decimal lat,lng. La coma tiene que viajar literal en el href. */
+const COORD_PAIR = /^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$/;
+
+/**
+ * URLSearchParams escribe la coma como %2C. La app de Google Maps
+ * no la decodifica y abre solo la latitud, en otro lugar.
+ * @param {string} value
+ * @returns {string}
+ */
+function encodeMapsValue(value) {
+  const raw = String(value ?? "").trim();
+  if (COORD_PAIR.test(raw)) return raw;
+  return encodeURIComponent(raw).replace(/%20/g, "+");
+}
+
 /**
  * @param {string} query
  * @returns {string}
  */
 export function mapsSearch(query) {
-  const q = String(query || "").trim();
-  const params = new URLSearchParams({ api: "1", query: q });
-  return `https://www.google.com/maps/search/?${params.toString()}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeMapsValue(query)}`;
 }
 
 /**
@@ -227,13 +250,13 @@ export function mapsSearch(query) {
  * @returns {string}
  */
 export function mapsDirections({ origin, destination, travelmode = "transit" } = {}) {
-  const params = new URLSearchParams({
-    api: "1",
-    origin: formatMapsPoint(origin),
-    destination: formatMapsPoint(destination),
-    travelmode: travelmode || "transit",
-  });
-  return `https://www.google.com/maps/dir/?${params.toString()}`;
+  const parts = [
+    "api=1",
+    `origin=${encodeMapsValue(formatMapsPoint(origin))}`,
+    `destination=${encodeMapsValue(formatMapsPoint(destination))}`,
+    `travelmode=${encodeMapsValue(travelmode || "transit")}`,
+  ];
+  return `https://www.google.com/maps/dir/?${parts.join("&")}`;
 }
 
 /**
@@ -272,12 +295,32 @@ export function mapsDirectionsForStop(stop, day, stops, index) {
 }
 
 /**
+ * Ficha de Google Maps: nombre + pin (!3d!4d).
+ * Una búsqueda solo con lat,lng abre otro resultado; el @ de un enlace
+ * compartido es la cámara, no el lugar.
+ * @param {string} name
+ * @param {number|string} lat
+ * @param {number|string} lng
+ * @returns {string}
+ */
+export function mapsPinUrl(name, lat, lng) {
+  const latN = Number(lat);
+  const lngN = Number(lng);
+  const pin = `${latN},${lngN}`;
+  const label = String(name || "").trim();
+  if (!label) return mapsSearch(pin);
+  const slug = encodeURIComponent(label).replace(/%20/g, "+");
+  return `https://www.google.com/maps/place/${slug}/@${pin},17z/data=!3d${latN}!4d${lngN}`;
+}
+
+/**
  * @param {object|null|undefined} stop
  * @param {object|null|undefined} day
  */
 export function mapsSearchForStop(stop, day) {
+  if (stop?.maps_url) return stop.maps_url;
   const loc = effectiveLocation(stop, day);
-  if (loc) return mapsSearch(`${loc.lat},${loc.lng}`);
+  if (loc) return mapsPinUrl(stop?.name, loc.lat, loc.lng);
   return mapsSearch(stopDestinationQuery(stop, day));
 }
 
@@ -296,8 +339,9 @@ export function stayDestinationQuery(day) {
  * @param {object|null|undefined} day
  */
 export function mapsSearchForStay(day) {
+  if (day?.stay_maps_url) return day.stay_maps_url;
   if (day?.stay_lat != null && day?.stay_lng != null) {
-    return mapsSearch(`${Number(day.stay_lat)},${Number(day.stay_lng)}`);
+    return mapsPinUrl(day?.stay_label, Number(day.stay_lat), Number(day.stay_lng));
   }
   return mapsSearch(stayDestinationQuery(day));
 }

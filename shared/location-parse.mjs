@@ -291,6 +291,47 @@ function tryPlusShort(raw, reference) {
 }
 
 /**
+ * Enlace corto de Compartir (maps.app.goo.gl o goo.gl/maps).
+ * No trae coordenadas: hay que seguir la redirección.
+ * @param {string} raw
+ */
+export function isShortMapsUrl(raw) {
+  try {
+    const url = new URL(String(raw ?? "").trim());
+    const host = url.hostname.toLowerCase();
+    if (host === "maps.app.goo.gl") return url.pathname.length > 1;
+    if (host === "goo.gl") return url.pathname.startsWith("/maps");
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Enlace de ficha para abrir en Maps, sin el texto crudo ni parámetros de tracking.
+ * Devuelve null si el pegado no es una URL de Maps.
+ * @param {string} raw
+ * @returns {string|null}
+ */
+export function mapsUrlFromRaw(raw) {
+  const text = String(raw ?? "").trim();
+  if (!looksLikeMapsUrl(text)) return null;
+  let url;
+  try {
+    url = new URL(text);
+  } catch {
+    return null;
+  }
+  for (const key of [...url.searchParams.keys()]) {
+    if (key === "entry" || key === "g_ep" || key === "skid" || key.startsWith("utm_")) {
+      url.searchParams.delete(key);
+    }
+  }
+  const query = url.searchParams.toString();
+  return `${url.origin}${url.pathname}${query ? `?${query}` : ""}${url.hash}`;
+}
+
+/**
  * @param {string} input
  * @param {{ reference?: { lat: number, lng: number } }} [opts]
  */

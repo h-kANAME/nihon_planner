@@ -8,6 +8,10 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  optimizeDeps: {
+    // El prebundle rompe la URL relativa del worker (import.meta.url).
+    exclude: ["maplibre-gl"],
+  },
   resolve: {
     alias: {
       // Permite import() dinámico del parser compartido desde src/

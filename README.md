@@ -53,10 +53,10 @@ Un solo contenedor sirve API + SPA (`SERVE_STATIC=true`). Datos SQLite en el vol
 ### Dokploy (AWS / Traefik)
 
 - **Compose Path:** `./docker-compose.dokploy.yml`
-- **Domain:** Host `nipon.trip.kyz-apps.site` · Service `nihonweb` · Port `8787` · HTTPS / Let's Encrypt
-- **FRONTEND_ORIGIN:** `https://nipon.trip.kyz-apps.site`
-- **Google OAuth:** Authorized JavaScript origins + redirect URIs con `https://nipon.trip.kyz-apps.site`
-- **DNS:** A `nipon.trip.kyz-apps.site` → `18.230.56.152` (el wildcard Hostmar no apunta a este VPS AWS)
+- **Domain:** Host `nipon.kyz-apps.site` · Service `nihonweb` · Port `8787` · HTTPS / Let's Encrypt
+- **FRONTEND_ORIGIN:** `https://nipon.kyz-apps.site`
+- **Google OAuth:** Authorized JavaScript origins + redirect URIs con `https://nipon.kyz-apps.site`
+- **DNS:** A `nipon.kyz-apps.site` → `18.230.56.152` (o wildcard `*.kyz-apps.site` al Lightsail)
 - Secretos solo en env de Dokploy (no `env_file` en el compose Dokploy)
 
 Variables mínimas: `FRONTEND_ORIGIN`, `COOKIE_SECURE=true`, `GOOGLE_CLIENT_ID`, `VITE_GOOGLE_CLIENT_ID`, `ALLOWED_EMAILS`, `SESSION_SECRET`, `GEMINI_API_KEY`.

@@ -10,6 +10,7 @@ import {
   buildStopLocationModeBody,
   isBatchRowApplied,
   locationPickerSearchQuery,
+  mapsPinUrl,
   mapsSearch,
   pendingStopsForBatch,
   previewBatchLines,
@@ -68,6 +69,8 @@ export function LocationPicker({ open, target = "stop", stop = null, day, onClos
   const [replacing, setReplacing] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [parseFn, setParseFn] = useState(null);
+  const [isShortMapsUrl, setIsShortMapsUrl] = useState(() => () => false);
+  const [resolving, setResolving] = useState(false);
   const [parseBusy, setParseBusy] = useState(false);
   const [parsed, setParsed] = useState(null);
   const [version, setVersion] = useState(initialVersion ?? 1);
@@ -113,6 +116,7 @@ export function LocationPicker({ open, target = "stop", stop = null, day, onClos
       .then((mod) => {
         if (cancelled) return;
         setParseFn(() => mod.parseLocationInput);
+        setIsShortMapsUrl(() => mod.isShortMapsUrl);
       })
       .catch((e) => {
         if (!cancelled) setError(e?.message || "No se pudo cargar el parser");
@@ -141,23 +145,51 @@ export function LocationPicker({ open, target = "stop", stop = null, day, onClos
       ? { lat: Number(day.stay_lat), lng: Number(day.stay_lng) }
       : undefined;
 
-  // Parseo en vivo single debounce 300 ms, sin red.
+  // Parseo en vivo. El enlace corto de Compartir se resuelve en el servidor.
   useEffect(() => {
     if (!open || !parseFn || pickerMode !== "single") return undefined;
     const trimmed = rawInput.trim();
     if (!trimmed) {
       setParsed(null);
+      setResolving(false);
       return undefined;
     }
+    let cancelled = false;
     const t = setTimeout(() => {
-      try {
-        setParsed(parseFn(trimmed, stayReference ? { reference: stayReference } : undefined));
-      } catch (e) {
-        setParsed({ ok: false, error: e?.message || "Error al parsear", warnings: [] });
+      if (!isShortMapsUrl(trimmed)) {
+        setResolving(false);
+        try {
+          setParsed(parseFn(trimmed, stayReference ? { reference: stayReference } : undefined));
+        } catch (e) {
+          setParsed({ ok: false, error: e?.message || "Error al parsear", warnings: [] });
+        }
+        return;
       }
+      setResolving(true);
+      setParsed(null);
+      api
+        .previewLocation(trimmed)
+        .then((result) => {
+          if (!cancelled) setParsed(result);
+        })
+        .catch((e) => {
+          if (!cancelled) {
+            setParsed({
+              ok: false,
+              error: e?.message || "No se pudo abrir el enlace de Google Maps",
+              warnings: [],
+            });
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setResolving(false);
+        });
     }, PARSE_DEBOUNCE_MS);
-    return () => clearTimeout(t);
-  }, [rawInput, parseFn, open, pickerMode, stayReference?.lat, stayReference?.lng]);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [rawInput, parseFn, isShortMapsUrl, open, pickerMode, stayReference?.lat, stayReference?.lng]);
 
   // Al pasar a lote, congelar pendientes del día (orden de aplicación).
   useEffect(() => {
@@ -183,7 +215,14 @@ export function LocationPicker({ open, target = "stop", stop = null, day, onClos
   const hasCoords =
     currentMode === "coords" && currentLat != null && currentLng != null;
   const showPaste = pickerMode === "batch" || !hasCoords || replacing;
-  const canConfirmSingle = !!(parsed && parsed.ok && !busy && showPaste && pickerMode === "single");
+  const canConfirmSingle = !!(
+    parsed &&
+    parsed.ok &&
+    !busy &&
+    !resolving &&
+    showPaste &&
+    pickerMode === "single"
+  );
   const okBatchCount = batchRows.filter((r) => r.ok).length;
   const pendingApplyCount = batchRowsToApply(batchRows, batchApplied).length;
   const canConfirmBatch =
@@ -191,11 +230,17 @@ export function LocationPicker({ open, target = "stop", stop = null, day, onClos
 
   const searchUrl = mapsSearch(locationPickerSearchQuery({ target, stop, day }));
   const verifyUrl =
-    parsed?.ok && parsed.lat != null && parsed.lng != null
-      ? mapsSearch(`${parsed.lat},${parsed.lng}`)
+    parsed?.ok && parsed.maps_url
+      ? parsed.maps_url
+      : parsed?.ok && parsed.lat != null && parsed.lng != null
+        ? mapsPinUrl(parsed.suggested_name || "", parsed.lat, parsed.lng)
+        : null;
+  const savedMapsUrl = isStay ? day?.stay_maps_url : stop?.maps_url;
+  const currentMapsUrl = savedMapsUrl
+    ? savedMapsUrl
+    : hasCoords
+      ? mapsPinUrl(isStay ? day?.stay_label : stop?.name, currentLat, currentLng)
       : null;
-  const currentMapsUrl =
-    hasCoords ? mapsSearch(`${currentLat},${currentLng}`) : null;
 
   const pasteFromClipboard = useCallback(async () => {
     try {
@@ -442,7 +487,7 @@ export function LocationPicker({ open, target = "stop", stop = null, day, onClos
             pickerMode === "batch"
               ? "Ubicar paradas en lote"
               : isStay
-                ? "Ubicar alojamiento"
+                ? "Marcar dónde dormís"
                 : `Ubicar ${labelName}`
           }
           data-location-picker={target}
@@ -668,7 +713,7 @@ export function LocationPicker({ open, target = "stop", stop = null, day, onClos
                     <div style={{ fontWeight: 600, color: C.onSurface, marginBottom: 4 }}>Escritorio</div>
                     Click derecho sobre el punto en Google Maps → «Copiar coordenadas» (o copiá la URL completa).
                     <div style={{ fontWeight: 600, color: C.onSurface, margin: "10px 0 4px" }}>Celular</div>
-                    Mantené presionado el punto → tocá las coordenadas que aparecen (o compartí / copiá el enlace expandido).
+                    Compartí el lugar y pegá el enlace corto (maps.app.goo.gl). También sirve mantener presionado el punto y copiar las coordenadas.
                     {pickerMode === "batch" && (
                       <>
                         <div style={{ fontWeight: 600, color: C.onSurface, margin: "10px 0 4px" }}>Lote</div>
@@ -678,9 +723,9 @@ export function LocationPicker({ open, target = "stop", stop = null, day, onClos
                   </div>
                 )}
 
-                {parseBusy && (
+                {(parseBusy || resolving) && (
                   <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginBottom: 8 }}>
-                    Cargando parser…
+                    {resolving ? "Abriendo el enlace de Google Maps…" : "Cargando parser…"}
                   </div>
                 )}
 
@@ -876,7 +921,9 @@ function ParsePreview({ parsed, verifyUrl }) {
             {parsed.precision ? ` · ${parsed.precision}` : ""}
           </div>
           {parsed.suggested_name && (
-            <div style={{ marginTop: 4, fontSize: 12 }}>{parsed.suggested_name}</div>
+            <div style={{ marginTop: 4, fontSize: 12 }}>
+              Nombre: {parsed.suggested_name}
+            </div>
           )}
           {(parsed.warnings || []).length > 0 && (
             <ul style={{ margin: "8px 0 0", paddingLeft: 18, color: "var(--warn-text)" }}>

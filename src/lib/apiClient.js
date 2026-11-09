@@ -67,6 +67,12 @@ export const api = {
   /** @param {string} id @param {{ version: number, raw_input?: string, clear?: boolean }} body */
   putStayLocation: (id, body) =>
     request(`/itinerary/days/${id}/stay-location`, { method: "PUT", body: JSON.stringify(body) }),
+  /** @param {string} rawInput */
+  previewLocation: (rawInput) =>
+    request("/locations/preview", {
+      method: "POST",
+      body: JSON.stringify({ raw_input: rawInput }),
+    }),
   importItineraryMd: (markdown, filename, opts = {}) =>
     request("/itinerary/import-md", {
       method: "POST",

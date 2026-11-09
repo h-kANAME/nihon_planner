@@ -110,3 +110,24 @@ option {
   background: var(--bg-elev);
   color: var(--fg);
 }
+
+[data-day-map-popup] .np-map-action,
+[data-day-map-popup] .np-map-action:visited {
+  color: var(--fg);
+}
+
+html[data-theme="dark"] [data-day-map-popup] .np-map-action,
+html[data-theme="dark"] [data-day-map-popup] .np-map-action:visited,
+html[data-theme="dark"] [data-day-map-popup] .np-map-action:hover,
+html[data-theme="dark"] [data-day-map-popup] .np-map-action:active {
+  color: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) [data-day-map-popup] .np-map-action,
+  html:not([data-theme]) [data-day-map-popup] .np-map-action:visited,
+  html:not([data-theme]) [data-day-map-popup] .np-map-action:hover,
+  html:not([data-theme]) [data-day-map-popup] .np-map-action:active {
+    color: #fff;
+  }
+}

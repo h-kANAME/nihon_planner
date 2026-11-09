@@ -198,6 +198,58 @@ test("PUT stay-location: set y clear; 409 con current", async (t) => {
   assert.equal(row.version, 3);
 });
 
+test("enlace corto de Compartir completa nombre, pin y ficha", async (t) => {
+  const place =
+    "https://www.google.com/maps/place/Hotel+Clio+Higashiguchi-ten/@35.7325993,139.7136101,17z/data=!4m9!3m8!1s0x60188d6687aea00f:0xde0815219a7206b9!5m2!4m1!1i2!8m2!3d35.732595!4d139.716185!16s%2Fg%2F1tfkw95s?entry=tts&g_ep=abc";
+  const canonical = place.slice(0, place.indexOf("?"));
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    status: 302,
+    headers: {
+      get(name) {
+        return String(name).toLowerCase() === "location" ? place : null;
+      },
+    },
+  });
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const { app, db, stopId } = await setupApp(t);
+  const preview = await app.inject({
+    method: "POST",
+    url: "/api/v1/locations/preview",
+    payload: { raw_input: "https://maps.app.goo.gl/sMqDEadjyb1XmMrS7" },
+  });
+  assert.equal(preview.statusCode, 200);
+  const seen = preview.json();
+  assert.equal(seen.ok, true);
+  assert.equal(seen.suggested_name, "Hotel Clio Higashiguchi-ten");
+  assert.equal(seen.lat, 35.732595);
+  assert.equal(seen.lng, 139.716185);
+  assert.equal(seen.precision, "place");
+  assert.equal(seen.maps_url, canonical);
+
+  const saved = await app.inject({
+    method: "PUT",
+    url: `/api/v1/itinerary/stops/${stopId}/location`,
+    payload: { version: 1, mode: "coords", raw_input: "https://maps.app.goo.gl/sMqDEadjyb1XmMrS7" },
+  });
+  assert.equal(saved.statusCode, 200);
+  const body = saved.json();
+  assert.equal(body.name, "Hotel Clio Higashiguchi-ten");
+  assert.equal(body.lat, 35.732595);
+  assert.equal(body.lng, 139.716185);
+  assert.equal(body.maps_url, canonical);
+  assert.ok(!("raw_input" in body));
+
+  const row = db.prepare("SELECT name, lat, lng, raw_input FROM itinerary_stops WHERE id = ?").get(stopId);
+  assert.equal(row.name, "Hotel Clio Higashiguchi-ten");
+  assert.equal(row.lat, 35.732595);
+  assert.equal(row.lng, 139.716185);
+  assert.equal(row.raw_input, canonical);
+});
+
 test("PUT stay-location: raw_input > 2000 → 400", async (t) => {
   const { app, dayId } = await setupApp(t);
   const res = await app.inject({

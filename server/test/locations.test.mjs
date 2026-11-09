@@ -6,6 +6,7 @@ import {
   stopDestinationQuery,
   stopDirectionsOrigin,
   mapsDirectionsForStop,
+  mapsPinUrl,
   mapsSearchForStop,
   mapsSearchForStay,
   mapsDirectionsForStay,
@@ -21,6 +22,7 @@ import {
   formatGlobalLocationProgress,
   dayHasPendingLocations,
   locateCtaLabel,
+  stayLodgingSearchQuery,
   resolveLocationBadge,
   locationPickerSearchQuery,
   stayLocationMode,
@@ -44,6 +46,20 @@ test("mapsSearch encodea query de texto", () => {
     url,
     "https://www.google.com/maps/search/?api=1&query=Senso-ji%2C+Asakusa%2C+Jap%C3%B3n",
   );
+});
+
+test("mapsSearch deja la coma literal en un par lat,lng", () => {
+  const pasted = "35.73296593827545, 139.71632486492385";
+  const parsed = parseLocationInput(pasted);
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.lat, 35.73296593827545);
+  assert.equal(parsed.lng, 139.71632486492385);
+  const url = mapsSearch(`${parsed.lat},${parsed.lng}`);
+  assert.equal(
+    url,
+    "https://www.google.com/maps/search/?api=1&query=35.73296593827545,139.71632486492385",
+  );
+  assert.equal(url.includes("%2C"), false);
 });
 
 test("mapsDirections usa transit y texto origen/destino", () => {
@@ -102,6 +118,31 @@ test("mapsDirectionsForStop sin coords usa texto y transit", () => {
   assert.equal(u.searchParams.get("travelmode"), "transit");
 });
 
+test("mapsSearchForStop prefiere la ficha guardada", () => {
+  const saved =
+    "https://www.google.com/maps/place/Hotel+Clio+Higashiguchi-ten/@35.7325993,139.7136101,17z/data=!3d35.732595!4d139.716185";
+  const url = mapsSearchForStop(
+    {
+      name: "Hotel Clio Higashiguchi-ten",
+      location_mode: "coords",
+      lat: 35.732595,
+      lng: 139.716185,
+      maps_url: saved,
+    },
+    {},
+  );
+  assert.equal(url, saved);
+});
+
+test("mapsPinUrl usa el pin del lugar y no la cámara del enlace", () => {
+  const url = mapsPinUrl("Hotel Clio Higashiguchi-ten", 35.732595, 139.716185);
+  assert.equal(
+    url,
+    "https://www.google.com/maps/place/Hotel+Clio+Higashiguchi-ten/@35.732595,139.716185,17z/data=!3d35.732595!4d139.716185",
+  );
+  assert.equal(url.includes("139.7136101"), false);
+});
+
 test("mapsSearchForStop y coords en directions cuando existen", () => {
   const day = { base: "Tokyo", stay_label: "Hotel", stay_lat: 35.73, stay_lng: 139.71 };
   const stop = {
@@ -110,8 +151,10 @@ test("mapsSearchForStop y coords en directions cuando existen", () => {
     lat: 35.714765,
     lng: 139.796655,
   };
-  const search = new URL(mapsSearchForStop(stop, day));
-  assert.equal(search.searchParams.get("query"), "35.714765,139.796655");
+  assert.equal(
+    mapsSearchForStop(stop, day),
+    "https://www.google.com/maps/place/Senso-ji/@35.714765,139.796655,17z/data=!3d35.714765!4d139.796655",
+  );
 
   const prev = { name: "Hotel", location_mode: "inherit_stay" };
   const stops = [prev, stop];
@@ -127,8 +170,10 @@ test("mapsSearchForStay / mapsDirectionsForStay: coords vs texto (§8.2 / M4-W3)
     stay_lat: 35.73,
     stay_lng: 139.71,
   };
-  const searchCoords = new URL(mapsSearchForStay(withCoords));
-  assert.equal(searchCoords.searchParams.get("query"), "35.73,139.71");
+  assert.equal(
+    mapsSearchForStay(withCoords),
+    "https://www.google.com/maps/place/Hotel+Ikebukuro/@35.73,139.71,17z/data=!3d35.73!4d139.71",
+  );
 
   const dirCoords = new URL(mapsDirectionsForStay(withCoords));
   assert.equal(dirCoords.searchParams.get("origin"), "Tokyo");
@@ -171,7 +216,10 @@ test("dayMapPopupLinks: stop y stay con how_to_get / deep links", () => {
   assert.equal(stopPopup.name, "Senso-ji");
   assert.equal(stopPopup.how_to_get, "Metro Asakusa");
   assert.equal(stopPopup.est_duration, "1h");
-  assert.equal(new URL(stopPopup.searchUrl).searchParams.get("query"), "35.714765,139.796655");
+  assert.equal(
+    stopPopup.searchUrl,
+    mapsPinUrl("Senso-ji", 35.714765, 139.796655),
+  );
   assert.equal(
     new URL(stopPopup.directionsUrl).searchParams.get("destination"),
     "35.714765,139.796655",
@@ -181,7 +229,7 @@ test("dayMapPopupLinks: stop y stay con how_to_get / deep links", () => {
   assert.equal(stayPopup.name, "Hotel");
   assert.equal(stayPopup.how_to_get, "");
   assert.ok(stayPopup.directionsUrl);
-  assert.equal(new URL(stayPopup.searchUrl).searchParams.get("query"), "35.73,139.71");
+  assert.equal(stayPopup.searchUrl, mapsPinUrl("Hotel", 35.73, 139.71));
 
   const pendingDay = {
     base: "Tokyo",
@@ -331,8 +379,17 @@ test("locationProgressTone y label del badge Plan (§8.3)", () => {
   assert.equal(formatLocationProgressLabel({ resolved: 6, total: 8 }), "6/8 ubicadas");
   assert.equal(locateCtaLabel(false, "stop"), "Ubicar");
   assert.equal(locateCtaLabel(true, "stop"), "Cambiar ubicación");
-  assert.equal(locateCtaLabel(false, "stay"), "Ubicar alojamiento");
-  assert.equal(locateCtaLabel(true, "stay"), "Cambiar alojamiento");
+  assert.equal(locateCtaLabel(false, "stay"), "Marcar dónde dormís");
+  assert.equal(locateCtaLabel(true, "stay"), "Cambiar dónde dormís");
+});
+
+test("stayLodgingSearchQuery busca alojamiento y no usa el pin", () => {
+  assert.equal(
+    stayLodgingSearchQuery({ stay_label: "Ikebukuro (check-in / base)", base: "" }),
+    "alojamiento en Ikebukuro, Japón",
+  );
+  assert.equal(stayLodgingSearchQuery({ base: "Kyoto" }), "alojamiento en Kyoto, Japón");
+  assert.equal(stayLodgingSearchQuery({}), "alojamiento en Japón");
 });
 
 test("locationProgressPercent y copy global Resumen (§8.3)", () => {

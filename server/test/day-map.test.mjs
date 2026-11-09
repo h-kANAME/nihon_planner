@@ -70,6 +70,10 @@ describe("DayMap (M4-W2/W3)", () => {
     assert.match(src, /target=["']_blank["']/);
     assert.match(src, /rel=["']noopener["']/);
     assert.match(src, /minHeight:\s*44/);
+    assert.match(src, /np-map-action/);
+    assert.equal(src.includes("...S.secondary"), false);
+    const css = readFileSync(join(root, "src/index.css"), "utf8");
+    assert.match(css, /html\[data-theme="dark"\] \[data-day-map-popup\] \.np-map-action[\s\S]*color:\s*#fff/);
     assert.match(src, /data-day-map-pending/);
     assert.match(src, /how_to_get/);
     assert.match(src, /est_duration/);

@@ -15,7 +15,8 @@ import { itineraryToMarkdown } from "../itinerary/exportMd.mjs";
 import { convertMarkdownToItinerary } from "../itinerary/convert.mjs";
 import { evaluateLocationsAtRisk } from "../itinerary/importGuard.mjs";
 import { createImportSnapshot } from "../itinerary/snapshot.mjs";
-import { parseLocationInput } from "../../shared/location-parse.mjs";
+import { mapsUrlFromRaw } from "../../shared/location-parse.mjs";
+import { readLocationInput } from "../itinerary/expandMapsUrl.mjs";
 
 const LOCATION_MODES = new Set(["pending", "coords", "not_applicable", "inherit_stay"]);
 const RAW_INPUT_MAX = 2000;
@@ -218,6 +219,24 @@ export async function itineraryRoutes(app, { db, ai, config }) {
     return { ok: true };
   });
 
+  /** Resuelve un enlace corto de Compartir y devuelve nombre, pin y ficha. */
+  app.post("/api/v1/locations/preview", async (request, reply) => {
+    const rawCheck = requireRawInput(request.body?.raw_input);
+    if (!rawCheck.ok) return sendError(reply, 400, rawCheck.code, rawCheck.message);
+    const reference = request.body?.reference;
+    let read;
+    try {
+      read = await readLocationInput(
+        rawCheck.raw,
+        reference?.lat != null && reference?.lng != null ? reference : undefined,
+      );
+    } catch (err) {
+      return sendError(reply, 400, "INVALID_LOCATION", err.message || "No se pudo resolver el enlace");
+    }
+    if (!read.parsed.ok) return sendError(reply, 400, "INVALID_LOCATION", read.parsed.error);
+    return { ...read.parsed, maps_url: mapsUrlFromRaw(read.raw_input) };
+  });
+
   /** Ubicación de parada: el servidor solo parsea raw_input (§6.1, §4.4). */
   app.put("/api/v1/itinerary/stops/:id/location", async (request, reply) => {
     const row = db.prepare("SELECT * FROM itinerary_stops WHERE id = ?").get(request.params.id);
@@ -237,6 +256,7 @@ export async function itineraryRoutes(app, { db, ai, config }) {
     let lng = null;
     let location_precision = null;
     let raw_input = null;
+    let nextName = row.name;
 
     if (mode === "coords") {
       const rawCheck = requireRawInput(body.raw_input);
@@ -247,7 +267,13 @@ export async function itineraryRoutes(app, { db, ai, config }) {
         day?.stay_lat != null && day?.stay_lng != null
           ? { lat: day.stay_lat, lng: day.stay_lng }
           : undefined;
-      const parsed = parseLocationInput(rawCheck.raw, { reference });
+      let read;
+      try {
+        read = await readLocationInput(rawCheck.raw, reference);
+      } catch (err) {
+        return sendError(reply, 400, "INVALID_LOCATION", err.message || "No se pudo resolver el enlace");
+      }
+      const parsed = read.parsed;
       if (!parsed.ok) {
         request.log.info({ stopId: row.id, parseOk: false }, "Parseo de ubicación falló");
         return sendError(reply, 400, "INVALID_LOCATION", parsed.error);
@@ -259,18 +285,29 @@ export async function itineraryRoutes(app, { db, ai, config }) {
       lat = parsed.lat;
       lng = parsed.lng;
       location_precision = parsed.precision;
-      raw_input = rawCheck.raw.trim();
+      raw_input = read.raw_input;
+      if (parsed.suggested_name) nextName = String(parsed.suggested_name).slice(0, 200);
     }
 
     const nextVersion = row.version + 1;
     const info = db
       .prepare(
         `UPDATE itinerary_stops SET
-           location_mode=?, lat=?, lng=?, location_precision=?, raw_input=?, version=?,
+           location_mode=?, lat=?, lng=?, location_precision=?, raw_input=?, name=?, version=?,
            updated_at=datetime('now')
          WHERE id=? AND version=?`,
       )
-      .run(mode, lat, lng, location_precision, raw_input, nextVersion, row.id, ver.version);
+      .run(
+        mode,
+        lat,
+        lng,
+        location_precision,
+        raw_input,
+        nextName,
+        nextVersion,
+        row.id,
+        ver.version,
+      );
     if (!info.changes) {
       const current = db.prepare("SELECT * FROM itinerary_stops WHERE id = ?").get(row.id);
       return sendVersionConflict(reply, mapStop(current));
@@ -292,6 +329,7 @@ export async function itineraryRoutes(app, { db, ai, config }) {
     let stay_lng = null;
     let stay_precision = null;
     let stay_raw_input = null;
+    let nextLabel = row.stay_label;
 
     if (body.clear === true) {
       // limpia coordenadas del alojamiento
@@ -299,7 +337,13 @@ export async function itineraryRoutes(app, { db, ai, config }) {
       const rawCheck = requireRawInput(body.raw_input);
       if (!rawCheck.ok) return sendError(reply, 400, rawCheck.code, rawCheck.message);
 
-      const parsed = parseLocationInput(rawCheck.raw);
+      let read;
+      try {
+        read = await readLocationInput(rawCheck.raw);
+      } catch (err) {
+        return sendError(reply, 400, "INVALID_LOCATION", err.message || "No se pudo resolver el enlace");
+      }
+      const parsed = read.parsed;
       if (!parsed.ok) {
         request.log.info({ dayId: row.id, parseOk: false }, "Parseo de stay-location falló");
         return sendError(reply, 400, "INVALID_LOCATION", parsed.error);
@@ -311,18 +355,28 @@ export async function itineraryRoutes(app, { db, ai, config }) {
       stay_lat = parsed.lat;
       stay_lng = parsed.lng;
       stay_precision = parsed.precision;
-      stay_raw_input = rawCheck.raw.trim();
+      stay_raw_input = read.raw_input;
+      if (parsed.suggested_name) nextLabel = String(parsed.suggested_name).slice(0, 200);
     }
 
     const nextVersion = row.version + 1;
     const info = db
       .prepare(
         `UPDATE itinerary_days SET
-           stay_lat=?, stay_lng=?, stay_precision=?, stay_raw_input=?, version=?,
+           stay_lat=?, stay_lng=?, stay_precision=?, stay_raw_input=?, stay_label=?, version=?,
            updated_at=datetime('now')
          WHERE id=? AND version=?`,
       )
-      .run(stay_lat, stay_lng, stay_precision, stay_raw_input, nextVersion, row.id, ver.version);
+      .run(
+        stay_lat,
+        stay_lng,
+        stay_precision,
+        stay_raw_input,
+        nextLabel,
+        nextVersion,
+        row.id,
+        ver.version,
+      );
     if (!info.changes) {
       const current = db.prepare("SELECT * FROM itinerary_days WHERE id = ?").get(row.id);
       return sendVersionConflict(reply, mapDay(current));
