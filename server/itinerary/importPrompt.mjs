@@ -4,6 +4,8 @@ No inventes días que no estén en el documento. Incluí días que aparezcan sol
 Si no hay fecha calendario clara para el día 1, usá "anchor_date": null.
 Sé compacto: notes cortas (≤ 500 chars por día); no copies el markdown entero.
 
+UBICACIONES: NO leas ni devuelvas coordenadas, columnas Hecho/Ubicación, "Ubicación alojamiento", lat/lng, location_mode, precision ni done. No las inventes. Otro proceso determinístico las maneja.
+
 Schema exacto:
 {
   "title": string,
@@ -46,7 +48,8 @@ Respondé ÚNICAMENTE con:
 Usá el mismo schema de día/paradas. Sé compacto. Sin fences ni prosa.
 Omití ASCII art y tablas de clusters; priorizá tablas de orden/paradas.
 Si el fragmento es un día sintetizado desde tabla resumen (Día|Zona|Anclas), cada ancla es un stop.
-kind: stop | hub_out | hub_back.`;
+kind: stop | hub_out | hub_back.
+NO leas ni inventes ubicaciones, coordenadas, Hecho/Ubicación ni done.`;
 
 /** Paso fijo del pipeline híbrido: refinar el JSON del parser local. */
 export const ITINERARY_REFINE_SYSTEM = `Sos el paso de refinamiento de un import híbrido (parser local + AI).
@@ -61,6 +64,7 @@ Reglas:
 - Conservá paradas reales; corregí kind (hub_out / hub_back / stop), nombres sucios y how_to_get/est_duration.
 - No inventes atracciones que no estén en el MD ni en el JSON base.
 - Omití ASCII art y tablas de clusters.
+- UBICACIONES: ignorá columnas Hecho/Ubicación, "Ubicación alojamiento" y cualquier lat/lng. No las inventes ni las devuelvas (ni done, ni location_mode, ni precision). Otro proceso las aplica.
 - Sé compacto. Sin fences ni prosa.`;
 
 export function itineraryImportUserMessage(markdown) {

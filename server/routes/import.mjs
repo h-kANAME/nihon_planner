@@ -9,6 +9,8 @@ import {
   normalizeExpenseInput,
   EXPENSE_CATEGORIES,
 } from "../helpers.mjs";
+import { validateItineraryJson } from "../itinerary/schema.mjs";
+import { replaceItinerary, itineraryToCanonical } from "../itinerary/store.mjs";
 
 function upsertExpense(db, e) {
   const n = normalizeExpenseInput(e);
@@ -92,7 +94,18 @@ function upsertSessionWithMessages(db, sesion, modeHint) {
 export async function importRoutes(app, { db }) {
   app.post("/api/v1/import", async (request, reply) => {
     const body = request.body || {};
-    const summary = { expenses: 0, plan_items: 0, sessions: 0, rates: false };
+    const summary = { expenses: 0, plan_items: 0, sessions: 0, rates: false, itinerary: false };
+
+    // Validar itinerario antes de tocar datos (§9.4)
+    const rawItinerary = body["jp:itinerary"] ?? body.itinerary;
+    let itineraryData = null;
+    if (rawItinerary != null) {
+      const validated = validateItineraryJson(rawItinerary, { trustLocations: true });
+      if (!validated.ok) {
+        return sendError(reply, 400, "IMPORT_FAILED", validated.error);
+      }
+      itineraryData = validated.data;
+    }
 
     try {
       const tx = db.transaction(() => {
@@ -166,6 +179,11 @@ export async function importRoutes(app, { db }) {
             summary.sessions += 1;
           }
         }
+
+        if (itineraryData) {
+          replaceItinerary(db, itineraryData, { source_filename: "dump" });
+          summary.itinerary = true;
+        }
       });
       tx();
 
@@ -205,6 +223,7 @@ export async function importRoutes(app, { db }) {
       "jp:logistics": logisticsFromExpenses(logisticsRows),
       "jp:rates": getRates(db),
       "jp:sessions": dumpSessions,
+      "jp:itinerary": itineraryToCanonical(db),
     };
   });
 }

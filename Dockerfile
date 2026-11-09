@@ -41,6 +41,7 @@ RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit
     && apk del python3 make g++
 
 COPY server ./server
+COPY shared ./shared
 COPY --from=build /app/dist ./dist
 
 RUN mkdir -p /app/data && chown -R nihon:nihon /app/data

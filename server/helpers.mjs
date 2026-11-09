@@ -1,5 +1,14 @@
-export function sendError(reply, status, code, message) {
-  return reply.code(status).send({ error: { code, message } });
+/** Error API. `extras` se fusiona en `error` (p. ej. `{ current }` en 409 VERSION_CONFLICT §6.1). */
+export function sendError(reply, status, code, message, extras) {
+  const error = { code, message };
+  if (extras && typeof extras === "object") Object.assign(error, extras);
+  return reply.code(status).send({ error });
+}
+
+export function sendVersionConflict(reply, current) {
+  return sendError(reply, 409, "VERSION_CONFLICT", "Otra persona actualizó esta ubicación", {
+    current,
+  });
 }
 
 export function parseJson(raw, fallback = {}) {

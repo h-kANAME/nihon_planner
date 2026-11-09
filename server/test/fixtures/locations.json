@@ -1,0 +1,129 @@
+[
+  {
+    "id": "decimal_sensoji",
+    "input": "35.7147651, 139.7966553",
+    "expect": {
+      "ok": true,
+      "source": "decimal",
+      "precision": "place",
+      "lat": 35.7147651,
+      "lng": 139.7966553
+    }
+  },
+  {
+    "id": "decimal_fushimi",
+    "input": "34.9671402; 135.7726957",
+    "expect": {
+      "ok": true,
+      "source": "decimal",
+      "precision": "place",
+      "lat": 34.9671402,
+      "lng": 135.7726957
+    }
+  },
+  {
+    "id": "dms_sensoji",
+    "input": "35°42'53.2\"N 139°47'47.9\"E",
+    "expect": {
+      "ok": true,
+      "source": "dms",
+      "precision": "place",
+      "latApprox": 35.7148,
+      "lngApprox": 139.7966
+    }
+  },
+  {
+    "id": "dms_kyoto_station",
+    "input": "34°59'8.5\"N 135°45'31.0\"E",
+    "expect": {
+      "ok": true,
+      "source": "dms",
+      "precision": "place",
+      "latApprox": 34.9857,
+      "lngApprox": 135.7586
+    }
+  },
+  {
+    "id": "url_place_sensoji",
+    "input": "https://www.google.com/maps/place/Sens%C5%8D-ji/@35.7147651,139.7966553,17z/data=!3m1!4b1!4m6!3m5!1s0x60188ec1a4f87f47:0x4ca0d85c0d2e0b0!8m2!3d35.7147651!4d139.7966553!16zL20vMDNfcXY",
+    "expect": {
+      "ok": true,
+      "source": "url",
+      "precision": "place",
+      "lat": 35.7147651,
+      "lng": 139.7966553,
+      "suggested_name": "Sensō-ji"
+    }
+  },
+  {
+    "id": "url_place_kiyomizu",
+    "input": "https://www.google.com/maps/place/Kiyomizu-dera/@34.9948561,135.7822978,17z/data=!3m1!4b1!4m6!3m5!1s0x600108e2648304cf:0x1b4c0a0c0c0c0c0c!8m2!3d34.9948561!4d135.785088!16s%2Fm%2F01yp0y",
+    "expect": {
+      "ok": true,
+      "source": "url",
+      "precision": "place",
+      "lat": 34.9948561,
+      "lng": 135.785088,
+      "suggested_name": "Kiyomizu-dera"
+    }
+  },
+  {
+    "id": "url_view_only",
+    "input": "https://www.google.com/maps/@35.0116,135.7681,17z",
+    "expect": {
+      "ok": true,
+      "source": "url",
+      "precision": "view",
+      "lat": 35.0116,
+      "lng": 135.7681,
+      "warningIncludes": "aproximada"
+    }
+  },
+  {
+    "id": "plus_global_sensoji",
+    "input": "8Q7XPQ7W+WM",
+    "expect": {
+      "ok": true,
+      "source": "plus_code",
+      "precision": "place",
+      "latApprox": 35.7148,
+      "lngApprox": 139.7967
+    }
+  },
+  {
+    "id": "plus_short_taito",
+    "input": "PQ7W+WM Taito City, Tokyo",
+    "reference": { "lat": 35.71, "lng": 139.79 },
+    "expect": {
+      "ok": true,
+      "source": "plus_code",
+      "precision": "place",
+      "latApprox": 35.7148,
+      "lngApprox": 139.7967
+    }
+  },
+  {
+    "id": "garbage",
+    "input": "esto no es una ubicacion valida",
+    "expect": {
+      "ok": false
+    }
+  },
+  {
+    "id": "inverted_outside_japan",
+    "input": "48.8566, 2.3522",
+    "expect": {
+      "ok": true,
+      "source": "decimal",
+      "precision": "place",
+      "outsideJapanWarning": true
+    }
+  },
+  {
+    "id": "integers_no_decimal",
+    "input": "35,7",
+    "expect": {
+      "ok": false
+    }
+  }
+]

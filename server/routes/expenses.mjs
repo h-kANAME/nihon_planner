@@ -10,6 +10,19 @@ import {
   LOGISTICS_KINDS,
 } from "../helpers.mjs";
 import { loadItinerary } from "../itinerary/store.mjs";
+import { locationProgress } from "../../src/lib/locations.js";
+
+/** Agregado global §6.2 / §8.3 — misma semántica que `locationProgress` por día. */
+export function aggregateLocationProgress(days) {
+  let total = 0;
+  let resolved = 0;
+  for (const day of days || []) {
+    const p = locationProgress(day);
+    total += p.total;
+    resolved += p.resolved;
+  }
+  return { total, resolved, pending: total - resolved };
+}
 
 const INSERT_SQL = `INSERT INTO expenses (
   id, description, amount, currency, category, spent_at, done, kind, meta_json, datetime_start, datetime_end
@@ -59,6 +72,7 @@ function nextItineraryDays(db) {
       stops: days.reduce((n, d) => n + (d.stops?.length || 0), 0),
       title: it.meta?.title || "",
       anchor_date: anchor || null,
+      locations: aggregateLocationProgress(days),
       nextDays: days.slice(startIdx, startIdx + 3).map((d) => ({
         day_number: d.day_number,
         title: d.title,
@@ -74,7 +88,16 @@ function nextItineraryDays(db) {
       })),
     };
   } catch {
-    return { days: 0, stops: 0, title: "", anchor_date: null, nextDays: [], corridor: [], dayChips: [] };
+    return {
+      days: 0,
+      stops: 0,
+      title: "",
+      anchor_date: null,
+      locations: { total: 0, resolved: 0, pending: 0 },
+      nextDays: [],
+      corridor: [],
+      dayChips: [],
+    };
   }
 }
 

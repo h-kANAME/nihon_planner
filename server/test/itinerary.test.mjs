@@ -165,11 +165,16 @@ test("mergeRefinedDay conserva base si AI deja stops vacíos", () => {
 
 test("export MD + replace TX + import-json", async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nihon-itin-"));
-  const db = openDb(path.join(dir, "t.db"));
+  const dbPath = path.join(dir, "t.db");
+  const db = openDb(dbPath);
   migrate(db);
 
   const app = Fastify({ logger: false });
-  await itineraryRoutes(app, { db, ai: {}, config: { aiProvider: "test", aiModel: "test" } });
+  await itineraryRoutes(app, {
+    db,
+    ai: {},
+    config: { aiProvider: "test", aiModel: "test", dbPath },
+  });
 
   t.after(async () => {
     await app.close();

@@ -6,7 +6,7 @@
 
 import { CONTINUE_JSON_PROMPT } from "../ai/provider.mjs";
 import { extractJsonObject, validateItineraryJson } from "./schema.mjs";
-import { heuristicDaysFromChunk } from "./heuristic.mjs";
+import { heuristicParseChunk, stripLocationsAppendix } from "./heuristic.mjs";
 import { augmentChunksWithSummaryDays } from "./summaryDays.mjs";
 import {
   ITINERARY_META_SYSTEM,
@@ -129,7 +129,13 @@ export function mergeRefinedDays(baseDays, refinedDays) {
 
 /**
  * @param {{ log?: object, onProgress?: (p: object) => void }} opts
- * @returns {{ data: object, warnings: string[], meta: object }}
+ * @returns {{ data: object, warnings: string[], meta: object, locationsByDay: Map<number, object> }}
+ *
+ * locationsByDay: Map<day_number, {
+ *   stay_location: { mode, lat?, lng?, precision?, raw_input?, warning? } | null,
+ *   stops: [{ index, name, location, done }]
+ * }>
+ * Las ubicaciones NO van en `data` (AI path); se re-aplican en replaceItinerary (WU3).
  */
 export async function convertMarkdownToItinerary(ai, markdown, { log, onProgress } = {}) {
   const emit = (p) => {
@@ -141,8 +147,10 @@ export async function convertMarkdownToItinerary(ai, markdown, { log, onProgress
   };
 
   const warnings = [];
-  const { preamble, chunks: headingChunks } = splitMarkdownByDays(markdown);
-  const chunks = augmentChunksWithSummaryDays(markdown, headingChunks);
+  // Apéndice v1.0: parsear, aplicar vía places, quitar antes de trocear por días (§7.2)
+  const { markdown: mdNoAppendix, places } = stripLocationsAppendix(markdown);
+  const { preamble, chunks: headingChunks } = splitMarkdownByDays(mdNoAppendix);
+  const chunks = augmentChunksWithSummaryDays(mdNoAppendix, headingChunks);
   const summaryExtra = chunks.filter((c) => c.fromSummary).length;
   if (summaryExtra > 0) {
     warnings.push(
@@ -180,11 +188,17 @@ export async function convertMarkdownToItinerary(ai, markdown, { log, onProgress
   });
 
   const baseByDay = new Map();
+  /** @type {Map<number, { stay_location: object|null, stops: object[] }>} */
+  const locationsByDay = new Map();
   for (const chunk of chunks) {
     const hints = chunk.dayNumber != null ? [chunk.dayNumber] : [];
-    const heur = heuristicDaysFromChunk(chunk.text, hints);
-    for (const d of heur) {
+    const heur = heuristicParseChunk(chunk.text, hints, { places });
+    warnings.push(...(heur.warnings || []));
+    for (const d of heur.days) {
       if (!baseByDay.has(d.day_number)) baseByDay.set(d.day_number, d);
+    }
+    for (const [dayNum, loc] of heur.locationsByDay) {
+      if (!locationsByDay.has(dayNum)) locationsByDay.set(dayNum, loc);
     }
   }
 
@@ -210,7 +224,7 @@ export async function convertMarkdownToItinerary(ai, markdown, { log, onProgress
     });
     const result = await ai.chatComplete({
       system: ITINERARY_IMPORT_SYSTEM,
-      messages: [{ role: "user", content: itineraryImportUserMessage(markdown) }],
+      messages: [{ role: "user", content: itineraryImportUserMessage(mdNoAppendix) }],
       log,
       maxTokens: IMPORT_MAX_TOKENS,
       maxContinuations: IMPORT_CONTINUATIONS,
@@ -234,6 +248,7 @@ export async function convertMarkdownToItinerary(ai, markdown, { log, onProgress
     return {
       data: validated.data,
       warnings: [...warnings, ...validated.warnings],
+      locationsByDay,
       meta: {
         model: result.usage?.model,
         provider: result.usage?.provider,
@@ -394,6 +409,7 @@ export async function convertMarkdownToItinerary(ai, markdown, { log, onProgress
   return {
     data: merged.data,
     warnings: [...warnings, ...merged.warnings],
+    locationsByDay,
     meta: {
       model: lastUsage.model,
       provider: lastUsage.provider,

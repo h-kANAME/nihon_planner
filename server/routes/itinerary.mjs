@@ -1,5 +1,5 @@
 import { uid } from "../db.mjs";
-import { sendError } from "../helpers.mjs";
+import { sendError, sendVersionConflict } from "../helpers.mjs";
 import { validateItineraryJson, validateMarkdownInput } from "../itinerary/schema.mjs";
 import {
   getTripMeta,
@@ -7,11 +7,39 @@ import {
   loadItinerary,
   replaceItinerary,
   itineraryToCanonical,
+  locationModeForKind,
   mapDay,
   mapStop,
 } from "../itinerary/store.mjs";
 import { itineraryToMarkdown } from "../itinerary/exportMd.mjs";
 import { convertMarkdownToItinerary } from "../itinerary/convert.mjs";
+import { evaluateLocationsAtRisk } from "../itinerary/importGuard.mjs";
+import { createImportSnapshot } from "../itinerary/snapshot.mjs";
+import { parseLocationInput } from "../../shared/location-parse.mjs";
+
+const LOCATION_MODES = new Set(["pending", "coords", "not_applicable", "inherit_stay"]);
+const RAW_INPUT_MAX = 2000;
+
+function requireVersion(body) {
+  const version = Number(body?.version);
+  if (!Number.isInteger(version)) return { ok: false, error: "version requerida (entero)" };
+  return { ok: true, version };
+}
+
+function requireRawInput(rawInput) {
+  if (rawInput == null || String(rawInput).trim() === "") {
+    return { ok: false, code: "RAW_INPUT_REQUIRED", message: "raw_input requerido" };
+  }
+  const raw = String(rawInput);
+  if (raw.length > RAW_INPUT_MAX) {
+    return {
+      ok: false,
+      code: "VALIDATION",
+      message: `raw_input supera ${RAW_INPUT_MAX} caracteres`,
+    };
+  }
+  return { ok: true, raw };
+}
 
 export async function itineraryRoutes(app, { db, ai, config }) {
   app.get("/api/v1/itinerary", async () => loadItinerary(db));
@@ -126,8 +154,8 @@ export async function itineraryRoutes(app, { db, ai, config }) {
     const kind = ["stop", "hub_out", "hub_back"].includes(body.kind) ? body.kind : "stop";
     db.prepare(
       `INSERT INTO itinerary_stops
-         (id, day_id, sort_order, name, detail, how_to_get, est_duration, notes, kind, done)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, day_id, sort_order, name, detail, how_to_get, est_duration, notes, kind, done, location_mode)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       day.id,
@@ -139,6 +167,7 @@ export async function itineraryRoutes(app, { db, ai, config }) {
       String(body.notes || "").trim().slice(0, 4000),
       kind,
       body.done ? 1 : 0,
+      locationModeForKind(kind),
     );
     const row = db.prepare("SELECT * FROM itinerary_stops WHERE id = ?").get(id);
     return reply.code(201).send(mapStop(row));
@@ -189,6 +218,123 @@ export async function itineraryRoutes(app, { db, ai, config }) {
     return { ok: true };
   });
 
+  /** Ubicación de parada: el servidor solo parsea raw_input (§6.1, §4.4). */
+  app.put("/api/v1/itinerary/stops/:id/location", async (request, reply) => {
+    const row = db.prepare("SELECT * FROM itinerary_stops WHERE id = ?").get(request.params.id);
+    if (!row) return sendError(reply, 404, "NOT_FOUND", "Parada no encontrada");
+
+    const body = request.body || {};
+    const ver = requireVersion(body);
+    if (!ver.ok) return sendError(reply, 400, "VALIDATION", ver.error);
+    if (ver.version !== row.version) return sendVersionConflict(reply, mapStop(row));
+
+    const mode = body.mode;
+    if (!LOCATION_MODES.has(mode)) {
+      return sendError(reply, 400, "VALIDATION", "mode inválido");
+    }
+
+    let lat = null;
+    let lng = null;
+    let location_precision = null;
+    let raw_input = null;
+
+    if (mode === "coords") {
+      const rawCheck = requireRawInput(body.raw_input);
+      if (!rawCheck.ok) return sendError(reply, 400, rawCheck.code, rawCheck.message);
+
+      const day = db.prepare("SELECT * FROM itinerary_days WHERE id = ?").get(row.day_id);
+      const reference =
+        day?.stay_lat != null && day?.stay_lng != null
+          ? { lat: day.stay_lat, lng: day.stay_lng }
+          : undefined;
+      const parsed = parseLocationInput(rawCheck.raw, { reference });
+      if (!parsed.ok) {
+        request.log.info({ stopId: row.id, parseOk: false }, "Parseo de ubicación falló");
+        return sendError(reply, 400, "INVALID_LOCATION", parsed.error);
+      }
+      request.log.info(
+        { stopId: row.id, source: parsed.source, precision: parsed.precision },
+        "Ubicación de parada parseada",
+      );
+      lat = parsed.lat;
+      lng = parsed.lng;
+      location_precision = parsed.precision;
+      raw_input = rawCheck.raw.trim();
+    }
+
+    const nextVersion = row.version + 1;
+    const info = db
+      .prepare(
+        `UPDATE itinerary_stops SET
+           location_mode=?, lat=?, lng=?, location_precision=?, raw_input=?, version=?,
+           updated_at=datetime('now')
+         WHERE id=? AND version=?`,
+      )
+      .run(mode, lat, lng, location_precision, raw_input, nextVersion, row.id, ver.version);
+    if (!info.changes) {
+      const current = db.prepare("SELECT * FROM itinerary_stops WHERE id = ?").get(row.id);
+      return sendVersionConflict(reply, mapStop(current));
+    }
+    return mapStop(db.prepare("SELECT * FROM itinerary_stops WHERE id = ?").get(row.id));
+  });
+
+  /** Alojamiento del día: parsea raw_input o clear (§6.1). */
+  app.put("/api/v1/itinerary/days/:id/stay-location", async (request, reply) => {
+    const row = db.prepare("SELECT * FROM itinerary_days WHERE id = ?").get(request.params.id);
+    if (!row) return sendError(reply, 404, "NOT_FOUND", "Día no encontrado");
+
+    const body = request.body || {};
+    const ver = requireVersion(body);
+    if (!ver.ok) return sendError(reply, 400, "VALIDATION", ver.error);
+    if (ver.version !== row.version) return sendVersionConflict(reply, mapDay(row));
+
+    let stay_lat = null;
+    let stay_lng = null;
+    let stay_precision = null;
+    let stay_raw_input = null;
+
+    if (body.clear === true) {
+      // limpia coordenadas del alojamiento
+    } else {
+      const rawCheck = requireRawInput(body.raw_input);
+      if (!rawCheck.ok) return sendError(reply, 400, rawCheck.code, rawCheck.message);
+
+      const parsed = parseLocationInput(rawCheck.raw);
+      if (!parsed.ok) {
+        request.log.info({ dayId: row.id, parseOk: false }, "Parseo de stay-location falló");
+        return sendError(reply, 400, "INVALID_LOCATION", parsed.error);
+      }
+      request.log.info(
+        { dayId: row.id, source: parsed.source, precision: parsed.precision },
+        "Stay-location parseada",
+      );
+      stay_lat = parsed.lat;
+      stay_lng = parsed.lng;
+      stay_precision = parsed.precision;
+      stay_raw_input = rawCheck.raw.trim();
+    }
+
+    const nextVersion = row.version + 1;
+    const info = db
+      .prepare(
+        `UPDATE itinerary_days SET
+           stay_lat=?, stay_lng=?, stay_precision=?, stay_raw_input=?, version=?,
+           updated_at=datetime('now')
+         WHERE id=? AND version=?`,
+      )
+      .run(stay_lat, stay_lng, stay_precision, stay_raw_input, nextVersion, row.id, ver.version);
+    if (!info.changes) {
+      const current = db.prepare("SELECT * FROM itinerary_days WHERE id = ?").get(row.id);
+      return sendVersionConflict(reply, mapDay(current));
+    }
+
+    const updated = db.prepare("SELECT * FROM itinerary_days WHERE id = ?").get(row.id);
+    const stops = db
+      .prepare("SELECT * FROM itinerary_stops WHERE day_id = ? ORDER BY sort_order")
+      .all(row.id);
+    return mapDay(updated, stops);
+  });
+
   /** Reemplazo total desde Markdown vía AI. Con stream:true → NDJSON de progreso. */
   app.post("/api/v1/itinerary/import-md", async (request, reply) => {
     const body = request.body || {};
@@ -197,6 +343,32 @@ export async function itineraryRoutes(app, { db, ai, config }) {
 
     const filename = body.filename ? String(body.filename).slice(0, 200) : null;
     const wantStream = body.stream === true || body.stream === "true";
+    const force = body.force === true || body.force === "true";
+
+    // Guarda §7.4: antes de AI, hijack y snapshot
+    const guard = evaluateLocationsAtRisk(check.markdown, db, { force });
+    if (guard.blocked) {
+      return sendError(
+        reply,
+        409,
+        "LOCATIONS_AT_RISK",
+        `Este Markdown no trae ubicaciones. Tu itinerario tiene ${guard.resolved} ubicaciones validadas y se van a perder.`,
+        { resolved: guard.resolved },
+      );
+    }
+
+    // Snapshot §9.3: después de la guarda, antes de AI / hijack / replaceItinerary
+    try {
+      await createImportSnapshot(db, config.dbPath);
+    } catch (e) {
+      request.log.error({ err: e.message, code: e.code }, "Snapshot pre-import falló");
+      return sendError(
+        reply,
+        e.status || 500,
+        e.code || "SNAPSHOT_FAILED",
+        e.message || "No se pudo crear snapshot antes del import",
+      );
+    }
 
     const runImport = async (onProgress) => {
       request.log.info({ chars: check.markdown.length, filename, wantStream }, "Import itinerario MD vía AI");
@@ -216,10 +388,16 @@ export async function itineraryRoutes(app, { db, ai, config }) {
         message: "Guardando en la base de datos…",
         detail: "Reemplazo total del itinerario",
       });
-      const itinerary = replaceItinerary(db, converted.data, { source_filename: filename });
+      const { itinerary, relink_report } = replaceItinerary(db, converted.data, {
+        source_filename: filename,
+        locationsByDay: converted.locationsByDay,
+      });
+      const warnings = [...(converted.warnings || [])];
+      if (guard.discardWarning) warnings.push(guard.discardWarning);
       return {
         itinerary,
-        warnings: converted.warnings,
+        warnings,
+        relink_report,
         meta: {
           model: converted.meta?.model || config.aiModel,
           provider: converted.meta?.provider || config.aiProvider,
@@ -266,6 +444,7 @@ export async function itineraryRoutes(app, { db, ai, config }) {
         detail: `${result.itinerary.days?.length || 0} días guardados`,
         itinerary: result.itinerary,
         warnings: result.warnings,
+        relink_report: result.relink_report,
         meta: result.meta,
       });
     } catch (e) {
@@ -282,14 +461,29 @@ export async function itineraryRoutes(app, { db, ai, config }) {
     }
   });
 
-  /** Import directo de JSON canónico (tests / reimport sin AI). */
+  /** Import directo de JSON canónico (tests / reimport sin AI). Confía ubicaciones (§9.4). */
   app.post("/api/v1/itinerary/import-json", async (request, reply) => {
-    const validated = validateItineraryJson(request.body);
+    const validated = validateItineraryJson(request.body, { trustLocations: true });
     if (!validated.ok) return sendError(reply, 400, "VALIDATION", validated.error);
-    const itinerary = replaceItinerary(db, validated.data, {
+
+    // Snapshot §9.3: fail-closed antes de replaceItinerary
+    try {
+      await createImportSnapshot(db, config.dbPath);
+    } catch (e) {
+      request.log.error({ err: e.message, code: e.code }, "Snapshot pre-import-json falló");
+      return sendError(
+        reply,
+        e.status || 500,
+        e.code || "SNAPSHOT_FAILED",
+        e.message || "No se pudo crear snapshot antes del import",
+      );
+    }
+
+    const { itinerary, relink_report } = replaceItinerary(db, validated.data, {
       source_filename: request.body?.source_filename || null,
+      locationsByDay: request.body?.locationsByDay || null,
     });
-    return { itinerary, warnings: validated.warnings };
+    return { itinerary, warnings: validated.warnings, relink_report };
   });
 
   app.get("/api/v1/itinerary/export.md", async (_request, reply) => {

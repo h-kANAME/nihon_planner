@@ -7,6 +7,19 @@ import Markdown from "./components/Markdown.jsx";
 import { useConfirmDialog } from "./components/ConfirmDialog.jsx";
 import PlanPreview from "./components/PlanPreview.jsx";
 import { useIsDesktop } from "./lib/viewport";
+import {
+  dayHasPendingLocations,
+  isLocationResolved,
+  locateCtaLabel,
+  locationProgress,
+  mapsDirectionsForStop,
+  mapsSearchForStop,
+  stayLocationMode,
+} from "./lib/locations";
+import { LocationBadge, LocationProgressBadge } from "./components/LocationBadge.jsx";
+import { LocationPicker } from "./components/LocationPicker.jsx";
+import { LocationProgressCard } from "./components/LocationProgressCard.jsx";
+import { DayMap } from "./components/DayMap.jsx";
 
 /* ============================================================
    NIHON PLANNER — Viaje a Japón (20 días, pareja, ARS/USD/JPY)
@@ -37,13 +50,81 @@ function CopyIcon({ size = 16 }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
       <rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="2" />
       <path
-        d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"
+        d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0 2 2v8a2 2 0 0 0 2 2h2"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
       />
     </svg>
   );
+}
+
+function StopMapsLinks({ stop, day, stops, index }) {
+  const directions = mapsDirectionsForStop(stop, day, stops, index);
+  const search = mapsSearchForStop(stop, day);
+  const linkStyle = {
+    ...S.secondary,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textDecoration: "none",
+    marginTop: 0,
+    padding: "8px 12px",
+    fontSize: 12,
+    minHeight: 44,
+    boxSizing: "border-box",
+  };
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+      <a href={directions} target="_blank" rel="noopener" style={linkStyle}>
+        Cómo llegar
+      </a>
+      <a href={search} target="_blank" rel="noopener" style={linkStyle}>
+        Ver en Google Maps
+      </a>
+    </div>
+  );
+}
+
+/** Toggle Lista/Mapa (§8.5). En desktop ≥900px el split no usa este control. */
+function ListaMapaToggle({ value, onChange }) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Vista del día"
+      data-day-pane-toggle
+      style={{ display: "flex", gap: 6, flexShrink: 0 }}
+    >
+      {[
+        ["list", "Lista"],
+        ["map", "Mapa"],
+      ].map(([id, label]) => {
+        const on = value === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            style={{ ...S.chip, ...(on ? S.chipOn : {}), minHeight: 36, padding: "6px 12px" }}
+            onClick={() => onChange(id)}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Primera parada pending del día, o stay si no hay. */
+function openFirstPendingLocation(day, { onLocateStop, onLocateStay } = {}) {
+  const pending = (day?.stops || []).find((s) => (s.location_mode || "pending") === "pending");
+  if (pending && typeof onLocateStop === "function") {
+    onLocateStop(pending);
+    return;
+  }
+  if (typeof onLocateStay === "function") onLocateStay();
 }
 
 const CATS = [
@@ -138,6 +219,8 @@ export default function App() {
   const activeLabel = NAV.find(([id]) => id === tab)?.[2] ?? "";
   const [ready, setReady] = useState(false);
   const [focusDayNumber, setFocusDayNumber] = useState(null);
+  /** CTA Resumen → Plan con filtro "Pendientes de ubicar" (§8.3). */
+  const [focusPendingLocations, setFocusPendingLocations] = useState(false);
 
   const [expenses, setExpenses] = useState([]);
   const [rates, setRates] = useState({ usdArs: 1300, usdJpy: 155, source: "manual", updatedAt: null });
@@ -215,6 +298,11 @@ export default function App() {
 
   const openPlanDay = (n) => {
     setFocusDayNumber(n);
+    setTab("plan");
+  };
+
+  const openPlanPendingLocations = () => {
+    setFocusPendingLocations(true);
     setTab("plan");
   };
 
@@ -325,11 +413,13 @@ export default function App() {
         <main style={S.main} className="font-sans">
           {tab === "resumen" && (
             <Resumen
+              theme={themeMode}
               totals={totals}
               expenses={expenses}
               rates={rates}
               onOpenPlanDay={openPlanDay}
               onOpenGastos={() => setTab("gastos")}
+              onLocatePending={openPlanPendingLocations}
             />
           )}
           {tab === "gastos" && <Gastos expenses={expenses} setExpenses={setExpenses} convert={convert} totals={totals} />}
@@ -338,8 +428,11 @@ export default function App() {
           )}
           {tab === "plan" && (
             <Plan
+              theme={themeMode}
               focusDayNumber={focusDayNumber}
               onFocusConsumed={() => setFocusDayNumber(null)}
+              focusPendingLocations={focusPendingLocations}
+              onPendingFocusConsumed={() => setFocusPendingLocations(false)}
             />
           )}
           {tab === "ai" && <Asistente sessions={sessions} setSessions={setSessions} />}
@@ -360,13 +453,15 @@ export default function App() {
 const ITINERARY_PAGE = 8;
 
 /* ================= RESUMEN ================= */
-function Resumen({ totals, expenses, rates, onOpenPlanDay, onOpenGastos }) {
+function Resumen({ theme = "light", totals, expenses, rates, onOpenPlanDay, onOpenGastos, onLocatePending }) {
   const isDesktop = useIsDesktop();
   const [dash, setDash] = useState(null);
   const [previewDay, setPreviewDay] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState(null);
   const [previewAnchor, setPreviewAnchor] = useState(null);
+  /** @type {[{ target: 'stop'|'stay', dayId: string, stopId?: string }|null, Function]} */
+  const [locationPicker, setLocationPicker] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -403,7 +498,14 @@ function Resumen({ totals, expenses, rates, onOpenPlanDay, onOpenGastos }) {
   };
 
   const logistics = dash?.logistics || { total: 0, done: 0, percent: 0 };
-  const itinerary = dash?.itinerary || { days: 0, stops: 0, nextDays: [], dayChips: [] };
+  const itinerary = dash?.itinerary || {
+    days: 0,
+    stops: 0,
+    nextDays: [],
+    dayChips: [],
+    locations: { total: 0, resolved: 0, pending: 0 },
+  };
+  const locations = itinerary.locations || { total: 0, resolved: 0, pending: 0 };
   const est = dash?.estimatedVsLoaded || { loadedUSD: 0, pendingLogisticsUSD: 0 };
   const pendingItems = dash?.pendingItems || [];
 
@@ -454,6 +556,8 @@ function Resumen({ totals, expenses, rates, onOpenPlanDay, onOpenGastos }) {
           Gestionar en Gastos →
         </button>
       </Card>
+
+      <LocationProgressCard locations={locations} onLocatePending={onLocatePending} />
 
       <Card>
         <div style={S.label}>Itinerario</div>
@@ -510,25 +614,85 @@ function Resumen({ totals, expenses, rates, onOpenPlanDay, onOpenGastos }) {
           loading={previewLoading}
           error={previewError}
           anchorDate={previewAnchor}
+          theme={theme}
           onClose={() => {
             setPreviewDay(null);
             setPreviewError(null);
             setPreviewLoading(false);
+            setLocationPicker(null);
           }}
           onEditInPlan={() => {
             const n = previewDay?.day_number;
             setPreviewDay(null);
             setPreviewError(null);
+            setLocationPicker(null);
             if (n != null) onOpenPlanDay(n);
           }}
+          onLocateStop={(stop) =>
+            previewDay && setLocationPicker({ target: "stop", dayId: previewDay.id, stopId: stop.id })
+          }
+          onLocateStay={() =>
+            previewDay && setLocationPicker({ target: "stay", dayId: previewDay.id })
+          }
+          onLocatePending={() =>
+            previewDay &&
+            openFirstPendingLocation(previewDay, {
+              onLocateStop: (stop) =>
+                setLocationPicker({ target: "stop", dayId: previewDay.id, stopId: stop.id }),
+              onLocateStay: () => setLocationPicker({ target: "stay", dayId: previewDay.id }),
+            })
+          }
         />
       )}
+
+      {locationPicker && previewDay && (() => {
+        const pickerDay = previewDay.id === locationPicker.dayId ? previewDay : null;
+        if (!pickerDay) return null;
+        const pickerStop =
+          locationPicker.target === "stop"
+            ? (pickerDay.stops || []).find((s) => s.id === locationPicker.stopId)
+            : null;
+        if (locationPicker.target === "stop" && !pickerStop) return null;
+        return (
+          <LocationPicker
+            open
+            target={locationPicker.target}
+            day={pickerDay}
+            stop={pickerStop}
+            onClose={() => setLocationPicker(null)}
+            onSaved={async () => {
+              try {
+                const data = await api.getItinerary();
+                const updated = (data.days || []).find((d) => d.id === pickerDay.id);
+                if (updated) setPreviewDay(updated);
+              } catch {
+                /* el picker ya mostró el error de guardado */
+              }
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
 
-function ItineraryDayDetailModal({ day, loading, error, anchorDate, onClose, onEditInPlan }) {
+function ItineraryDayDetailModal({
+  day,
+  loading,
+  error,
+  anchorDate,
+  theme = "light",
+  onClose,
+  onEditInPlan,
+  onLocateStop,
+  onLocateStay,
+  onLocatePending,
+}) {
   const isDesktop = useIsDesktop();
+  const [pane, setPane] = useState("list");
+  useEffect(() => {
+    setPane("list");
+  }, [day?.id]);
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -542,6 +706,86 @@ function ItineraryDayDetailModal({ day, loading, error, anchorDate, onClose, onE
 
   const cal = day ? calendarForDay(anchorDate, day.day_number) : null;
   const stops = [...(day?.stops || [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const showMap = !!day && !loading;
+  const showListPane = isDesktop || pane === "list" || !showMap;
+  const showMapPane = showMap && (isDesktop || pane === "map");
+
+  const dayDetailList = day && !loading && (
+    <>
+      <div style={{ fontSize: 18, fontWeight: 700, color: C.ink, marginBottom: 8 }}>
+        {day.title || `Día ${day.day_number}`}
+      </div>
+      <Row k="Base" v={day.base || "—"} />
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Row k="Alojamiento" v={day.stay_label || "—"} />
+        </div>
+        <LocationBadge
+          mode={stayLocationMode(day)}
+          precision={day.stay_precision}
+          kind="stay"
+        />
+      </div>
+      <Row k="Hub" v={day.hub || "—"} />
+      {day.notes ? (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ ...S.label, marginBottom: 6 }}>Notas</div>
+          <div style={{ fontSize: 13, color: C.onSurface, whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
+            {day.notes}
+          </div>
+        </div>
+      ) : null}
+
+      <div style={{ ...S.label, marginTop: 16, marginBottom: 8 }}>
+        Paradas ({stops.length})
+      </div>
+      {stops.length === 0 ? (
+        <Empty text="Este día no tiene paradas cargadas." />
+      ) : (
+        stops.map((s, i) => (
+          <div
+            key={s.id || i}
+            style={{
+              padding: "10px 0",
+              borderBottom: `1px solid ${C.line}`,
+              opacity: s.done ? 0.65 : 1,
+            }}
+          >
+            <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.hanko, minWidth: 28 }}>
+                {s.kind === "hub_out" ? "OUT" : s.kind === "hub_back" ? "IN" : `#${i + 1}`}
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, textDecoration: s.done ? "line-through" : "none" }}>
+                    {s.name || "(sin nombre)"}
+                  </div>
+                  <LocationBadge
+                    mode={s.location_mode}
+                    precision={s.location_precision}
+                    kind="stop"
+                  />
+                </div>
+                {s.detail && (
+                  <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginTop: 2 }}>{s.detail}</div>
+                )}
+                {s.how_to_get && (
+                  <div style={{ fontSize: 12, color: C.soft, marginTop: 2 }}>Cómo llegar: {s.how_to_get}</div>
+                )}
+                {s.est_duration && (
+                  <div style={{ fontSize: 12, color: C.indigo, marginTop: 2 }}>{s.est_duration}</div>
+                )}
+                {s.notes && (
+                  <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginTop: 2 }}>{s.notes}</div>
+                )}
+                <StopMapsLinks stop={s} day={day} stops={stops} index={i} />
+              </div>
+            </div>
+          </div>
+        ))
+      )}
+    </>
+  );
 
   return (
     <div
@@ -565,7 +809,7 @@ function ItineraryDayDetailModal({ day, loading, error, anchorDate, onClose, onE
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%",
-          maxWidth: isDesktop ? "min(100%, 640px)" : 520,
+          maxWidth: isDesktop && showMap ? "min(100%, 1080px)" : isDesktop ? "min(100%, 640px)" : 520,
           maxHeight: "88vh",
           display: "flex",
           flexDirection: "column",
@@ -575,78 +819,71 @@ function ItineraryDayDetailModal({ day, loading, error, anchorDate, onClose, onE
           paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${C.outlineVariant}` }}>
-          <div style={{ fontWeight: 700, fontSize: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "14px 16px", borderBottom: `1px solid ${C.outlineVariant}` }}>
+          <div style={{ fontWeight: 700, fontSize: 16, minWidth: 0 }}>
             {loading
               ? "Cargando…"
               : day
                 ? `Día ${day.day_number}${cal ? ` · ${cal}` : ""}`
                 : "Detalle"}
           </div>
-          <button type="button" style={S.ghost} onClick={onClose}>✕</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            {showMap && !isDesktop && (
+              <ListaMapaToggle value={pane} onChange={setPane} />
+            )}
+            <button type="button" style={S.ghost} onClick={onClose}>✕</button>
+          </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", WebkitOverflowScrolling: "touch" }}>
-          {loading && <Empty text="Cargando el día…" />}
-          {error && !loading && <Empty text={error} />}
-          {day && !loading && (
-            <>
-              <div style={{ fontSize: 18, fontWeight: 700, color: C.ink, marginBottom: 8 }}>
-                {day.title || `Día ${day.day_number}`}
-              </div>
-              <Row k="Base" v={day.base || "—"} />
-              <Row k="Alojamiento" v={day.stay_label || "—"} />
-              <Row k="Hub" v={day.hub || "—"} />
-              {day.notes ? (
-                <div style={{ marginTop: 12 }}>
-                  <div style={{ ...S.label, marginBottom: 6 }}>Notas</div>
-                  <div style={{ fontSize: 13, color: C.onSurface, whiteSpace: "pre-wrap", lineHeight: 1.45 }}>
-                    {day.notes}
-                  </div>
-                </div>
-              ) : null}
-
-              <div style={{ ...S.label, marginTop: 16, marginBottom: 8 }}>
-                Paradas ({stops.length})
-              </div>
-              {stops.length === 0 ? (
-                <Empty text="Este día no tiene paradas cargadas." />
-              ) : (
-                stops.map((s, i) => (
-                  <div
-                    key={s.id || i}
-                    style={{
-                      padding: "10px 0",
-                      borderBottom: `1px solid ${C.line}`,
-                      opacity: s.done ? 0.65 : 1,
-                    }}
-                  >
-                    <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: C.hanko, minWidth: 28 }}>
-                        {s.kind === "hub_out" ? "OUT" : s.kind === "hub_back" ? "IN" : `#${i + 1}`}
-                      </span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: 14, textDecoration: s.done ? "line-through" : "none" }}>
-                          {s.name || "(sin nombre)"}
-                        </div>
-                        {s.detail && (
-                          <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginTop: 2 }}>{s.detail}</div>
-                        )}
-                        {s.how_to_get && (
-                          <div style={{ fontSize: 12, color: C.soft, marginTop: 2 }}>Cómo llegar: {s.how_to_get}</div>
-                        )}
-                        {s.est_duration && (
-                          <div style={{ fontSize: 12, color: C.indigo, marginTop: 2 }}>{s.est_duration}</div>
-                        )}
-                        {s.notes && (
-                          <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginTop: 2 }}>{s.notes}</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </>
+        <div
+          data-day-pane-layout={isDesktop && showMap ? "split" : "stack"}
+          style={{
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: isDesktop && showMap ? "row" : "column",
+            overflow: "hidden",
+          }}
+        >
+          {showListPane && (
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                overflowY: "auto",
+                padding: "12px 16px",
+                WebkitOverflowScrolling: "touch",
+              }}
+            >
+              {loading && <Empty text="Cargando el día…" />}
+              {error && !loading && <Empty text={error} />}
+              {dayDetailList}
+            </div>
+          )}
+          {showMapPane && (
+            <div
+              data-day-map-pane
+              style={{
+                flex: isDesktop ? "0 0 46%" : 1,
+                minWidth: isDesktop ? 280 : 0,
+                overflowY: "auto",
+                padding: isDesktop ? "12px 16px 12px 8px" : "12px 16px",
+                borderLeft: isDesktop ? `1px solid ${C.outlineVariant}` : undefined,
+                position: isDesktop ? "sticky" : undefined,
+                top: 0,
+                alignSelf: isDesktop ? "stretch" : undefined,
+                WebkitOverflowScrolling: "touch",
+              }}
+            >
+              <DayMap
+                day={day}
+                theme={theme}
+                height={isDesktop ? "min(56vh, 480px)" : "min(55vh, 420px)"}
+                onLocatePending={onLocatePending}
+                onLocateStop={onLocateStop}
+                onLocateStay={onLocateStay}
+              />
+            </div>
           )}
         </div>
 
@@ -1156,7 +1393,13 @@ function calendarForDay(anchorDate, dayNumber) {
   return dt.toLocaleDateString("es-AR", { day: "numeric", month: "numeric", timeZone: "UTC" });
 }
 
-function Plan({ focusDayNumber = null, onFocusConsumed }) {
+function Plan({
+  theme = "light",
+  focusDayNumber = null,
+  onFocusConsumed,
+  focusPendingLocations = false,
+  onPendingFocusConsumed,
+}) {
   const isDesktop = useIsDesktop();
   const [meta, setMeta] = useState({ title: "", anchor_date: null });
   const [days, setDays] = useState([]);
@@ -1166,9 +1409,13 @@ function Plan({ focusDayNumber = null, onFocusConsumed }) {
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(null);
   const [query, setQuery] = useState("");
+  /** Filtro Plan §8.3: solo días con pending>0 (lista de días + hint). */
+  const [filterPendingLocations, setFilterPendingLocations] = useState(false);
   const [visible, setVisible] = useState(ITINERARY_PAGE);
   const [daySheet, setDaySheet] = useState(null);
   const [stopSheet, setStopSheet] = useState(null);
+  /** @type {[{ target: 'stop'|'stay', dayId: string, stopId?: string }|null, Function]} */
+  const [locationPicker, setLocationPicker] = useState(null);
   const [busy, setBusy] = useState(false);
   const importRef = useRef(null);
   const [askConfirm, confirmNode] = useConfirmDialog();
@@ -1189,13 +1436,21 @@ function Plan({ focusDayNumber = null, onFocusConsumed }) {
 
   useEffect(() => {
     setVisible(ITINERARY_PAGE);
-  }, [query, days.length]);
+  }, [query, filterPendingLocations, days.length]);
+
+  useEffect(() => {
+    if (!focusPendingLocations) return;
+    setQuery("");
+    setFilterPendingLocations(true);
+    onPendingFocusConsumed?.();
+  }, [focusPendingLocations, onPendingFocusConsumed]);
 
   useEffect(() => {
     if (focusDayNumber == null || !days.length) return;
     const d = days.find((x) => x.day_number === focusDayNumber);
     if (d) {
       setQuery("");
+      setFilterPendingLocations(false);
       setVisible(Math.max(ITINERARY_PAGE, days.length));
       setDaySheet({
         mode: "edit",
@@ -1216,14 +1471,15 @@ function Plan({ focusDayNumber = null, onFocusConsumed }) {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return days;
     return days.filter((d) => {
+      if (filterPendingLocations && !dayHasPendingLocations(d)) return false;
+      if (!q) return true;
       const blob = [d.day_number, d.title, d.base, d.stay_label, d.hub, d.notes, ...(d.stops || []).map((s) => s.name)]
         .join(" ")
         .toLowerCase();
       return blob.includes(q);
     });
-  }, [days, query]);
+  }, [days, query, filterPendingLocations]);
 
   const shown = filtered.slice(0, visible);
 
@@ -1238,6 +1494,43 @@ function Plan({ focusDayNumber = null, onFocusConsumed }) {
     } finally {
       setBusy(false);
     }
+  };
+
+  const runImportMd = async (markdown, filename, { force = false } = {}) => {
+    setImportProgress({
+      percent: 2,
+      message: force
+        ? "Importando igual · ubicaciones actuales se descartarán…"
+        : "Archivo listo · enviando a la AI…",
+      detail: `${Math.round(markdown.length / 1024)} KB`,
+      phase: "upload",
+    });
+    const res = await api.importItineraryMdStream(
+      markdown,
+      filename,
+      (p) => {
+        setImportProgress({
+          percent: Math.min(99, Number(p.percent) || 0),
+          message: p.message || "Importando…",
+          detail: p.detail || "",
+          phase: p.phase || "progress",
+          current: p.current,
+          total: p.total,
+        });
+      },
+      { force },
+    );
+    setMeta(res.itinerary.meta);
+    setDays(res.itinerary.days || []);
+    setWarnings(res.warnings || []);
+    setImportProgress({
+      percent: 100,
+      message: "Listo",
+      detail: `${res.itinerary.days?.length || 0} días importados`,
+      phase: "done",
+    });
+    await new Promise((r) => setTimeout(r, 700));
+    return res;
   };
 
   const onImportFile = async (e) => {
@@ -1262,32 +1555,34 @@ function Plan({ focusDayNumber = null, onFocusConsumed }) {
     setWarnings([]);
     try {
       const markdown = await file.text();
-      setImportProgress({
-        percent: 2,
-        message: "Archivo listo · enviando a la AI…",
-        detail: `${Math.round(markdown.length / 1024)} KB`,
-        phase: "upload",
-      });
-      const res = await api.importItineraryMdStream(markdown, file.name, (p) => {
-        setImportProgress({
-          percent: Math.min(99, Number(p.percent) || 0),
-          message: p.message || "Importando…",
-          detail: p.detail || "",
-          phase: p.phase || "progress",
-          current: p.current,
-          total: p.total,
-        });
-      });
-      setMeta(res.itinerary.meta);
-      setDays(res.itinerary.days || []);
-      setWarnings(res.warnings || []);
-      setImportProgress({
-        percent: 100,
-        message: "Listo",
-        detail: `${res.itinerary.days?.length || 0} días importados`,
-        phase: "done",
-      });
-      await new Promise((r) => setTimeout(r, 700));
+      try {
+        await runImportMd(markdown, file.name, { force: false });
+      } catch (err) {
+        if (err?.code === "LOCATIONS_AT_RISK" && err?.status === 409) {
+          setImportProgress(null);
+          const resolved =
+            err.data?.error?.resolved ?? err.data?.resolved ?? "?";
+          const forceOk = await askConfirm({
+            title: "Ubicaciones en riesgo",
+            message:
+              err.message ||
+              `Este Markdown no trae ubicaciones. Tu itinerario tiene ${resolved} ubicaciones validadas y se van a perder.`,
+            confirmLabel: "Importar igual",
+            cancelLabel: "Cancelar",
+            danger: true,
+          });
+          if (!forceOk) return;
+          setImportProgress({
+            percent: 0,
+            message: "Reintentando con confirmación…",
+            detail: file.name,
+            phase: "upload",
+          });
+          await runImportMd(markdown, file.name, { force: true });
+          return;
+        }
+        throw err;
+      }
     } catch (err) {
       setError(err.message || "Error al importar");
       setImportProgress(null);
@@ -1548,14 +1843,36 @@ function Plan({ focusDayNumber = null, onFocusConsumed }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+            <button
+              type="button"
+              style={{ ...S.chip, ...(filterPendingLocations ? S.chipOn : {}) }}
+              aria-pressed={filterPendingLocations}
+              onClick={() => setFilterPendingLocations((v) => !v)}
+            >
+              Pendientes de ubicar
+            </button>
+          </div>
           <div style={{ fontSize: 11, color: C.onSurfaceVariant, marginBottom: 8 }}>
             Mostrando {shown.length} de {filtered.length}
             {filtered.length !== days.length ? ` · filtrados de ${days.length}` : ""}
+            {filterPendingLocations
+              ? " · solo días con paradas sin ubicar (abrí el día para el picker)"
+              : ""}
           </div>
           <div style={{ maxHeight: isDesktop ? "calc(100vh - 300px)" : "min(55vh, 480px)", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-            {filtered.length === 0 && <Empty text="Sin resultados para esta búsqueda." />}
+            {filtered.length === 0 && (
+              <Empty
+                text={
+                  filterPendingLocations
+                    ? "No hay días con ubicaciones pendientes."
+                    : "Sin resultados para esta búsqueda."
+                }
+              />
+            )}
             {shown.map((d) => {
               const cal = calendarForDay(meta.anchor_date, d.day_number);
+              const prog = locationProgress(d);
               return (
                 <div
                   key={d.id}
@@ -1565,6 +1882,7 @@ function Plan({ focusDayNumber = null, onFocusConsumed }) {
                     display: "flex",
                     justifyContent: "space-between",
                     gap: 8,
+                    alignItems: "flex-start",
                   }}
                 >
                   <button
@@ -1581,10 +1899,13 @@ function Plan({ focusDayNumber = null, onFocusConsumed }) {
                       minWidth: 0,
                     }}
                   >
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>
-                      Día {d.day_number}
-                      {cal ? ` · ${cal}` : ""}
-                      {d.title ? ` — ${d.title}` : ""}
+                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>
+                        Día {d.day_number}
+                        {cal ? ` · ${cal}` : ""}
+                        {d.title ? ` — ${d.title}` : ""}
+                      </div>
+                      <LocationProgressBadge progress={prog} />
                     </div>
                     <Meta>
                       {[d.base && `Base ${d.base}`, d.stay_label && `Dormir: ${d.stay_label}`, d.hub && `Hub ${d.hub}`, `${(d.stops || []).length} paradas`]
@@ -1608,6 +1929,8 @@ function Plan({ focusDayNumber = null, onFocusConsumed }) {
       {daySheet && (
         <ItineraryDaySheet
           sheet={daySheet}
+          day={days.find((d) => d.id === daySheet.id) || null}
+          theme={theme}
           busy={busy}
           anchorDate={meta.anchor_date}
           onChangeValues={(values) => setDaySheet((s) => (s ? { ...s, values } : s))}
@@ -1636,6 +1959,21 @@ function Plan({ focusDayNumber = null, onFocusConsumed }) {
               },
             })
           }
+          onLocateStop={(stop) =>
+            setLocationPicker({ target: "stop", dayId: daySheet.id, stopId: stop.id })
+          }
+          onLocateStay={() => setLocationPicker({ target: "stay", dayId: daySheet.id })}
+          onLocatePending={() => {
+            const d = days.find((x) => x.id === daySheet.id);
+            openFirstPendingLocation(
+              d ? { ...d, stops: daySheet.stops || d.stops } : { stops: daySheet.stops },
+              {
+                onLocateStop: (stop) =>
+                  setLocationPicker({ target: "stop", dayId: daySheet.id, stopId: stop.id }),
+                onLocateStay: () => setLocationPicker({ target: "stay", dayId: daySheet.id }),
+              },
+            );
+          }}
           onMoveStop={(stop, dir) => moveStop(daySheet.id, stop, dir)}
           onDeleteStop={deleteStop}
           onToggleStopDone={async (stop) => {
@@ -1654,15 +1992,73 @@ function Plan({ focusDayNumber = null, onFocusConsumed }) {
         />
       )}
 
-      {stopSheet && (
-        <ItineraryStopSheet
-          sheet={stopSheet}
-          busy={busy}
-          onChange={(values) => setStopSheet((s) => (s ? { ...s, values } : s))}
-          onSave={saveStopSheet}
-          onClose={() => !busy && setStopSheet(null)}
-        />
-      )}
+      {stopSheet && (() => {
+        const stopDay = days.find((d) => d.id === stopSheet.dayId) || null;
+        const stopRow =
+          stopSheet.mode === "edit" && stopSheet.id
+            ? (stopDay?.stops || []).find((s) => s.id === stopSheet.id) || null
+            : null;
+        return (
+          <ItineraryStopSheet
+            sheet={stopSheet}
+            stop={stopRow}
+            day={stopDay}
+            busy={busy}
+            onChange={(values) => setStopSheet((s) => (s ? { ...s, values } : s))}
+            onSave={saveStopSheet}
+            onClose={() => !busy && setStopSheet(null)}
+            onLocate={
+              stopSheet.mode === "edit" && stopSheet.id
+                ? () =>
+                    setLocationPicker({
+                      target: "stop",
+                      dayId: stopSheet.dayId,
+                      stopId: stopSheet.id,
+                    })
+                : undefined
+            }
+          />
+        );
+      })()}
+
+      {locationPicker && (() => {
+        const pickerDay = days.find((d) => d.id === locationPicker.dayId);
+        if (!pickerDay) return null;
+        const pickerStop =
+          locationPicker.target === "stop"
+            ? (pickerDay.stops || []).find((s) => s.id === locationPicker.stopId)
+            : null;
+        if (locationPicker.target === "stop" && !pickerStop) return null;
+        return (
+          <LocationPicker
+            open
+            target={locationPicker.target}
+            day={pickerDay}
+            stop={pickerStop}
+            onClose={() => setLocationPicker(null)}
+            onSaved={async () => {
+              const data = await refresh();
+              if (daySheet?.id) {
+                const updated = (data.days || []).find((x) => x.id === daySheet.id);
+                if (updated) {
+                  setDaySheet((s) =>
+                    s
+                      ? {
+                          ...s,
+                          stops: updated.stops,
+                          values: {
+                            ...s.values,
+                            stay_label: updated.stay_label || s.values.stay_label,
+                          },
+                        }
+                      : s,
+                  );
+                }
+              }
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -1766,6 +2162,8 @@ function ImportProgressOverlay({ progress }) {
 
 function ItineraryDaySheet({
   sheet,
+  day,
+  theme = "light",
   busy,
   anchorDate,
   onChangeValues,
@@ -1773,6 +2171,9 @@ function ItineraryDaySheet({
   onClose,
   onAddStop,
   onEditStop,
+  onLocateStop,
+  onLocateStay,
+  onLocatePending,
   onMoveStop,
   onDeleteStop,
   onToggleStopDone,
@@ -1781,7 +2182,37 @@ function ItineraryDaySheet({
   const cal = calendarForDay(anchorDate, Number(v.day_number));
   const isEdit = sheet.mode === "edit";
   const isDesktop = useIsDesktop();
+  const [pane, setPane] = useState("list");
   const stops = [...(sheet.stops || [])].sort((a, b) => a.sort_order - b.sort_order);
+  const locateBtn = {
+    ...S.secondary,
+    minHeight: 44,
+    minWidth: 44,
+    padding: "6px 10px",
+    marginTop: 0,
+    fontSize: 12,
+  };
+  const mapDay = useMemo(() => {
+    if (!isEdit) return null;
+    const base = day || {};
+    return {
+      ...base,
+      day_number: Number(v.day_number) || base.day_number,
+      title: v.title ?? base.title,
+      base: v.base ?? base.base,
+      stay_label: v.stay_label ?? base.stay_label,
+      hub: v.hub ?? base.hub,
+      notes: v.notes ?? base.notes,
+      stops: sheet.stops || base.stops || [],
+    };
+  }, [isEdit, day, v, sheet.stops]);
+  const showMap = !!mapDay;
+  const showListPane = isDesktop || pane === "list" || !showMap;
+  const showMapPane = showMap && (isDesktop || pane === "map");
+
+  useEffect(() => {
+    setPane("list");
+  }, [sheet.id, sheet.mode]);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -1793,6 +2224,102 @@ function ItineraryDaySheet({
       window.removeEventListener("keydown", onKey);
     };
   }, [busy, onClose]);
+
+  const listBody = (
+    <>
+      {[
+        ["day_number", "Número de día", "number"],
+        ["title", "Título (ej. Oeste hub Ikebukuro)", "text"],
+        ["base", "Base / ciudad", "text"],
+        ["stay_label", "Dónde dormís", "text"],
+        ["hub", "Hub logístico", "text"],
+      ].map(([k, ph, type]) => (
+        <div key={k}>
+          <div style={{ fontSize: 11, color: C.onSurfaceVariant, margin: "2px 0 4px" }}>{ph}</div>
+          <input
+            style={{ ...S.input, marginBottom: 10 }}
+            type={type}
+            value={v[k] || ""}
+            disabled={busy}
+            onChange={(e) => onChangeValues({ ...v, [k]: e.target.value })}
+          />
+        </div>
+      ))}
+      <div style={{ fontSize: 11, color: C.onSurfaceVariant, margin: "2px 0 4px" }}>Notas del día</div>
+      <textarea
+        style={{ ...S.input, minHeight: 80, resize: "vertical", marginBottom: 14 }}
+        value={v.notes || ""}
+        disabled={busy}
+        onChange={(e) => onChangeValues({ ...v, notes: e.target.value })}
+      />
+
+      {isEdit && onLocateStay && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: C.onSurfaceVariant, marginBottom: 6 }}>Ubicación del alojamiento</div>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+            <LocationBadge
+              mode={stayLocationMode(day)}
+              precision={day?.stay_precision}
+              kind="stay"
+            />
+            <button type="button" style={locateBtn} disabled={busy} onClick={onLocateStay}>
+              {locateCtaLabel(stayLocationMode(day) === "coords", "stay")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isEdit && (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>Paradas</div>
+            <button type="button" style={{ ...S.secondary, minHeight: 44, padding: "6px 10px" }} disabled={busy} onClick={onAddStop}>+ Parada</button>
+          </div>
+          {stops.length === 0 && <Empty text="Sin paradas. Agregá la primera." />}
+          {stops.map((stop, i) => {
+            const stopResolved = isLocationResolved(stop, day);
+            return (
+            <div key={stop.id} style={{ borderBottom: `1px solid ${C.outlineVariant}`, padding: "10px 0" }}>
+              <div style={{ display: "flex", gap: 6 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, textDecoration: stop.done ? "line-through" : "none" }}>
+                      {stop.kind !== "stop" ? `[${stop.kind}] ` : `${i + 1}. `}{stop.name}
+                    </div>
+                    <LocationBadge
+                      mode={stop.location_mode}
+                      precision={stop.location_precision}
+                      kind="stop"
+                    />
+                  </div>
+                  <Meta>{[stop.how_to_get, stop.est_duration, stop.detail].filter(Boolean).join(" · ")}</Meta>
+                </div>
+                <button type="button" style={{ ...S.ghost, minWidth: 44, minHeight: 44 }} disabled={busy || i === 0} onClick={() => onMoveStop(stop, -1)}>↑</button>
+                <button type="button" style={{ ...S.ghost, minWidth: 44, minHeight: 44 }} disabled={busy || i === stops.length - 1} onClick={() => onMoveStop(stop, 1)}>↓</button>
+                <button type="button" style={{ ...S.ghost, minWidth: 44, minHeight: 44 }} disabled={busy} onClick={() => onToggleStopDone(stop)}>{stop.done ? "✓" : "○"}</button>
+                <button type="button" style={{ ...S.ghost, minWidth: 44, minHeight: 44 }} disabled={busy} onClick={() => onEditStop(stop)}>✎</button>
+                <button type="button" style={{ ...S.ghost, minWidth: 44, minHeight: 44 }} disabled={busy} onClick={() => onDeleteStop(stop)}>✕</button>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                {onLocateStop && (
+                  <button type="button" style={locateBtn} disabled={busy} onClick={() => onLocateStop(stop)}>
+                    {locateCtaLabel(stopResolved, "stop")}
+                  </button>
+                )}
+              </div>
+              <StopMapsLinks stop={stop} day={day || v} stops={stops} index={i} />
+            </div>
+            );
+          })}
+        </>
+      )}
+      {!isEdit && (
+        <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginBottom: 8 }}>
+          Guardá el día para poder agregar paradas.
+        </div>
+      )}
+    </>
+  );
 
   return (
     <div
@@ -1815,7 +2342,7 @@ function ItineraryDaySheet({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%",
-          maxWidth: isDesktop ? "min(100%, 640px)" : 520,
+          maxWidth: isDesktop && showMap ? "min(100%, 1080px)" : isDesktop ? "min(100%, 640px)" : 520,
           maxHeight: "90vh",
           display: "flex",
           flexDirection: "column",
@@ -1825,66 +2352,63 @@ function ItineraryDaySheet({
           paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", borderBottom: `1px solid ${C.outlineVariant}` }}>
-          <div style={{ fontWeight: 700, fontSize: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "14px 16px", borderBottom: `1px solid ${C.outlineVariant}` }}>
+          <div style={{ fontWeight: 700, fontSize: 16, minWidth: 0 }}>
             {isEdit ? `Día ${v.day_number}${cal ? ` · ${cal}` : ""}` : "Nuevo día"}
           </div>
-          <button type="button" style={S.ghost} onClick={onClose} disabled={busy}>✕</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            {showMap && !isDesktop && (
+              <ListaMapaToggle value={pane} onChange={setPane} />
+            )}
+            <button type="button" style={S.ghost} onClick={onClose} disabled={busy}>✕</button>
+          </div>
         </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", WebkitOverflowScrolling: "touch" }}>
-          {[
-            ["day_number", "Número de día", "number"],
-            ["title", "Título (ej. Oeste hub Ikebukuro)", "text"],
-            ["base", "Base / ciudad", "text"],
-            ["stay_label", "Dónde dormís", "text"],
-            ["hub", "Hub logístico", "text"],
-          ].map(([k, ph, type]) => (
-            <div key={k}>
-              <div style={{ fontSize: 11, color: C.onSurfaceVariant, margin: "2px 0 4px" }}>{ph}</div>
-              <input
-                style={{ ...S.input, marginBottom: 10 }}
-                type={type}
-                value={v[k] || ""}
-                disabled={busy}
-                onChange={(e) => onChangeValues({ ...v, [k]: e.target.value })}
-              />
+        <div
+          data-day-pane-layout={isDesktop && showMap ? "split" : "stack"}
+          style={{
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: isDesktop && showMap ? "row" : "column",
+            overflow: "hidden",
+          }}
+        >
+          {showListPane && (
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                overflowY: "auto",
+                padding: "12px 16px",
+                WebkitOverflowScrolling: "touch",
+              }}
+            >
+              {listBody}
             </div>
-          ))}
-          <div style={{ fontSize: 11, color: C.onSurfaceVariant, margin: "2px 0 4px" }}>Notas del día</div>
-          <textarea
-            style={{ ...S.input, minHeight: 80, resize: "vertical", marginBottom: 14 }}
-            value={v.notes || ""}
-            disabled={busy}
-            onChange={(e) => onChangeValues({ ...v, notes: e.target.value })}
-          />
-
-          {isEdit && (
-            <>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>Paradas</div>
-                <button type="button" style={{ ...S.secondary, minHeight: 36, padding: "6px 10px" }} disabled={busy} onClick={onAddStop}>+ Parada</button>
-              </div>
-              {stops.length === 0 && <Empty text="Sin paradas. Agregá la primera." />}
-              {stops.map((stop, i) => (
-                <div key={stop.id} style={{ borderBottom: `1px solid ${C.outlineVariant}`, padding: "10px 0", display: "flex", gap: 6 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, textDecoration: stop.done ? "line-through" : "none" }}>
-                      {stop.kind !== "stop" ? `[${stop.kind}] ` : `${i + 1}. `}{stop.name}
-                    </div>
-                    <Meta>{[stop.how_to_get, stop.est_duration, stop.detail].filter(Boolean).join(" · ")}</Meta>
-                  </div>
-                  <button type="button" style={{ ...S.ghost, minWidth: 36 }} disabled={busy || i === 0} onClick={() => onMoveStop(stop, -1)}>↑</button>
-                  <button type="button" style={{ ...S.ghost, minWidth: 36 }} disabled={busy || i === stops.length - 1} onClick={() => onMoveStop(stop, 1)}>↓</button>
-                  <button type="button" style={{ ...S.ghost, minWidth: 36 }} disabled={busy} onClick={() => onToggleStopDone(stop)}>{stop.done ? "✓" : "○"}</button>
-                  <button type="button" style={{ ...S.ghost, minWidth: 36 }} disabled={busy} onClick={() => onEditStop(stop)}>✎</button>
-                  <button type="button" style={{ ...S.ghost, minWidth: 36 }} disabled={busy} onClick={() => onDeleteStop(stop)}>✕</button>
-                </div>
-              ))}
-            </>
           )}
-          {!isEdit && (
-            <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginBottom: 8 }}>
-              Guardá el día para poder agregar paradas.
+          {showMapPane && (
+            <div
+              data-day-map-pane
+              style={{
+                flex: isDesktop ? "0 0 46%" : 1,
+                minWidth: isDesktop ? 280 : 0,
+                overflowY: "auto",
+                padding: isDesktop ? "12px 16px 12px 8px" : "12px 16px",
+                borderLeft: isDesktop ? `1px solid ${C.outlineVariant}` : undefined,
+                position: isDesktop ? "sticky" : undefined,
+                top: 0,
+                alignSelf: isDesktop ? "stretch" : undefined,
+                WebkitOverflowScrolling: "touch",
+              }}
+            >
+              <DayMap
+                day={mapDay}
+                theme={theme}
+                height={isDesktop ? "min(56vh, 480px)" : "min(55vh, 420px)"}
+                onLocatePending={onLocatePending}
+                onLocateStop={onLocateStop}
+                onLocateStay={onLocateStay}
+              />
             </div>
           )}
         </div>
@@ -1899,9 +2423,10 @@ function ItineraryDaySheet({
   );
 }
 
-function ItineraryStopSheet({ sheet, busy, onChange, onSave, onClose }) {
+function ItineraryStopSheet({ sheet, stop = null, day = null, busy, onChange, onSave, onClose, onLocate }) {
   const v = sheet.values;
   const isDesktop = useIsDesktop();
+  const stopResolved = stop ? isLocationResolved(stop, day) : false;
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape" && !busy) onClose(); };
     window.addEventListener("keydown", onKey);
@@ -1938,8 +2463,17 @@ function ItineraryStopSheet({ sheet, busy, onChange, onSave, onClose }) {
           boxShadow: C.elevation2,
         }}
       >
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>
-          {sheet.mode === "edit" ? "Editar parada" : "Nueva parada"}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: 16 }}>
+            {sheet.mode === "edit" ? "Editar parada" : "Nueva parada"}
+          </div>
+          {stop && (
+            <LocationBadge
+              mode={stop.location_mode}
+              precision={stop.location_precision}
+              kind="stop"
+            />
+          )}
         </div>
         {[
           ["name", "Nombre"],
@@ -1969,9 +2503,19 @@ function ItineraryStopSheet({ sheet, busy, onChange, onSave, onClose }) {
           <option value="hub_out">Salida hub</option>
           <option value="hub_back">Retorno hub</option>
         </select>
+        {onLocate && (
+          <button
+            type="button"
+            style={{ ...S.secondary, width: "100%", minHeight: 44, marginBottom: 12, marginTop: 0 }}
+            disabled={busy}
+            onClick={onLocate}
+          >
+            {locateCtaLabel(stopResolved, "stop")}
+          </button>
+        )}
         <div style={{ display: "flex", gap: 8 }}>
-          <button type="button" style={{ ...S.secondary, flex: 1, marginTop: 0 }} disabled={busy} onClick={onClose}>Cancelar</button>
-          <button type="button" style={{ ...S.primary, flex: 1.4, marginTop: 0 }} disabled={busy} onClick={onSave}>
+          <button type="button" style={{ ...S.secondary, flex: 1, marginTop: 0, minHeight: 44 }} disabled={busy} onClick={onClose}>Cancelar</button>
+          <button type="button" style={{ ...S.primary, flex: 1.4, marginTop: 0, minHeight: 44 }} disabled={busy} onClick={onSave}>
             {busy ? "Guardando…" : "Guardar"}
           </button>
         </div>

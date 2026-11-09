@@ -61,33 +61,50 @@ export const api = {
   patchItineraryStop: (id, body) =>
     request(`/itinerary/stops/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteItineraryStop: (id) => request(`/itinerary/stops/${id}`, { method: "DELETE" }),
-  importItineraryMd: (markdown, filename) =>
+  /** @param {string} id @param {{ version: number, mode: string, raw_input?: string }} body */
+  putStopLocation: (id, body) =>
+    request(`/itinerary/stops/${id}/location`, { method: "PUT", body: JSON.stringify(body) }),
+  /** @param {string} id @param {{ version: number, raw_input?: string, clear?: boolean }} body */
+  putStayLocation: (id, body) =>
+    request(`/itinerary/days/${id}/stay-location`, { method: "PUT", body: JSON.stringify(body) }),
+  importItineraryMd: (markdown, filename, opts = {}) =>
     request("/itinerary/import-md", {
       method: "POST",
-      body: JSON.stringify({ markdown, filename }),
+      body: JSON.stringify({ markdown, filename, force: !!opts.force }),
     }),
   /**
    * Import con progreso NDJSON.
+   * Propaga status/code/data en Error (§7.4 force / LOCATIONS_AT_RISK).
    * @param {string} markdown
    * @param {string} [filename]
    * @param {(p: object) => void} [onProgress]
+   * @param {{ force?: boolean }} [opts]
    */
-  importItineraryMdStream: async (markdown, filename, onProgress) => {
+  importItineraryMdStream: async (markdown, filename, onProgress, opts = {}) => {
     const res = await fetch(`${BASE}/itinerary/import-md`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ markdown, filename, stream: true }),
+      body: JSON.stringify({
+        markdown,
+        filename,
+        stream: true,
+        force: !!opts.force,
+      }),
     });
     if (!res.ok || !res.body) {
       const text = await res.text();
-      let msg = `HTTP ${res.status}`;
+      let data = null;
       try {
-        msg = JSON.parse(text)?.error?.message || msg;
+        data = text ? JSON.parse(text) : null;
       } catch {
-        /* raw */
+        data = { raw: text };
       }
-      throw new Error(msg);
+      const err = new Error(data?.error?.message || `HTTP ${res.status}`);
+      err.status = res.status;
+      err.code = data?.error?.code;
+      err.data = data;
+      throw err;
     }
 
     const reader = res.body.getReader();
@@ -123,11 +140,13 @@ export const api = {
             itinerary: evt.itinerary,
             warnings: evt.warnings || [],
             meta: evt.meta,
+            relink_report: evt.relink_report,
           };
         } else if (evt.type === "error") {
           const err = new Error(evt.message || "Error al importar");
           err.code = evt.code;
           err.status = evt.status;
+          err.data = evt.data != null ? evt.data : evt;
           throw err;
         }
       }
@@ -141,9 +160,14 @@ export const api = {
             itinerary: evt.itinerary,
             warnings: evt.warnings || [],
             meta: evt.meta,
+            relink_report: evt.relink_report,
           };
         } else if (evt.type === "error") {
-          throw new Error(evt.message || "Error al importar");
+          const err = new Error(evt.message || "Error al importar");
+          err.code = evt.code;
+          err.status = evt.status;
+          err.data = evt.data != null ? evt.data : evt;
+          throw err;
         }
       } catch (e) {
         if (e.message && !e.message.includes("JSON")) throw e;

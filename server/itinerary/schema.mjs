@@ -3,10 +3,13 @@
  */
 
 export const STOP_KINDS = new Set(["stop", "hub_out", "hub_back"]);
+export const LOCATION_MODES = new Set(["pending", "coords", "not_applicable", "inherit_stay"]);
+export const LOCATION_PRECISIONS = new Set(["place", "view"]);
 export const MAX_MD_CHARS = 400_000;
 export const MAX_DAYS = 60;
 export const MAX_STOPS_PER_DAY = 40;
 export const MAX_STR = 4000;
+export const MAX_RAW_INPUT = 2000;
 
 function asStr(v, max = MAX_STR) {
   return String(v ?? "")
@@ -46,7 +49,7 @@ function normalizeDayShape(d) {
   if (!d || typeof d !== "object") return d;
   const stopsRaw = pick(d, ["stops", "paradas", "Stops"], []);
   const num = pick(d, ["day_number", "dayNumber", "day", "dia", "numero", "n"], null);
-  return {
+  const out = {
     day_number: num,
     title: pick(d, ["title", "titulo", "nombre"], "") ?? "",
     base: pick(d, ["base", "ciudad", "city"], "") ?? "",
@@ -55,11 +58,17 @@ function normalizeDayShape(d) {
     notes: pick(d, ["notes", "notas"], "") ?? "",
     stops: (Array.isArray(stopsRaw) ? stopsRaw : []).map(normalizeStopShape),
   };
+  // Campos de ubicación: se pasan para dump/import-json; validate los descarta sin trustLocations.
+  if ("stay_lat" in d) out.stay_lat = d.stay_lat;
+  if ("stay_lng" in d) out.stay_lng = d.stay_lng;
+  if ("stay_precision" in d) out.stay_precision = d.stay_precision;
+  if ("stay_raw_input" in d) out.stay_raw_input = d.stay_raw_input;
+  return out;
 }
 
 function normalizeStopShape(s) {
   if (!s || typeof s !== "object") return s;
-  return {
+  const out = {
     kind: pick(s, ["kind", "tipo"], "stop"),
     name: pick(s, ["name", "nombre", "parada"], "") ?? "",
     detail: pick(s, ["detail", "detalle"], "") ?? "",
@@ -68,12 +77,142 @@ function normalizeStopShape(s) {
     notes: pick(s, ["notes", "notas", "reserva"], "") ?? "",
     done: !!s.done,
   };
+  if ("lat" in s) out.lat = s.lat;
+  if ("lng" in s) out.lng = s.lng;
+  if ("location_mode" in s) out.location_mode = s.location_mode;
+  if ("location_precision" in s) out.location_precision = s.location_precision;
+  if ("raw_input" in s) out.raw_input = s.raw_input;
+  return out;
+}
+
+function asFiniteNumber(v) {
+  if (v == null || v === "") return null;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function sanitizeRawInput(v) {
+  if (v == null || v === "") return null;
+  return asStr(v, MAX_RAW_INPUT) || null;
 }
 
 /**
+ * Conserva y valida campos de ubicación de una parada (§9.4 trustLocations).
+ * @returns {object} campos a fusionar en la parada
+ */
+function trustedStopLocation(s, dayNumber, stopName, warnings) {
+  let mode = s.location_mode == null || s.location_mode === "" ? null : asStr(s.location_mode, 32);
+  if (mode && !LOCATION_MODES.has(mode)) {
+    warnings.push(`Día ${dayNumber} · «${stopName}»: location_mode inválido (${mode}); se ignora`);
+    mode = null;
+  }
+
+  let precision =
+    s.location_precision == null || s.location_precision === ""
+      ? null
+      : asStr(s.location_precision, 16);
+  if (precision && !LOCATION_PRECISIONS.has(precision)) {
+    warnings.push(
+      `Día ${dayNumber} · «${stopName}»: location_precision inválida (${precision}); se ignora`,
+    );
+    precision = null;
+  }
+
+  const lat = asFiniteNumber(s.lat);
+  const lng = asFiniteNumber(s.lng);
+  const raw_input = sanitizeRawInput(s.raw_input);
+
+  if (mode === "coords") {
+    if (lat == null || lng == null || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      warnings.push(
+        `Día ${dayNumber} · «${stopName}»: coords fuera de rango; se deja pending`,
+      );
+      return {
+        location_mode: "pending",
+        lat: null,
+        lng: null,
+        location_precision: null,
+        raw_input,
+      };
+    }
+    return {
+      location_mode: "coords",
+      lat,
+      lng,
+      location_precision: precision || "place",
+      raw_input,
+    };
+  }
+
+  if (mode === "not_applicable" || mode === "inherit_stay" || mode === "pending") {
+    return {
+      location_mode: mode,
+      lat: null,
+      lng: null,
+      location_precision: null,
+      raw_input: mode === "pending" ? raw_input : null,
+    };
+  }
+
+  // Sin mode explícito: si hay lat/lng válidos, coords; si no, no adjuntar campos.
+  if (lat != null && lng != null && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+    return {
+      location_mode: "coords",
+      lat,
+      lng,
+      location_precision: precision || "place",
+      raw_input,
+    };
+  }
+
+  return {};
+}
+
+/**
+ * Conserva y valida stay_* del día (§9.4 trustLocations).
+ */
+function trustedStayLocation(d, dayNumber, warnings) {
+  const lat = asFiniteNumber(d.stay_lat);
+  const lng = asFiniteNumber(d.stay_lng);
+  let precision =
+    d.stay_precision == null || d.stay_precision === "" ? null : asStr(d.stay_precision, 16);
+  if (precision && !LOCATION_PRECISIONS.has(precision)) {
+    warnings.push(`Día ${dayNumber}: stay_precision inválida (${precision}); se ignora`);
+    precision = null;
+  }
+  const stay_raw_input = sanitizeRawInput(d.stay_raw_input);
+
+  if (lat == null || lng == null) {
+    return {
+      stay_lat: null,
+      stay_lng: null,
+      stay_precision: null,
+      stay_raw_input,
+    };
+  }
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    warnings.push(`Día ${dayNumber}: stay coords fuera de rango; se descartan`);
+    return {
+      stay_lat: null,
+      stay_lng: null,
+      stay_precision: null,
+      stay_raw_input,
+    };
+  }
+  return {
+    stay_lat: lat,
+    stay_lng: lng,
+    stay_precision: precision || "place",
+    stay_raw_input,
+  };
+}
+
+/**
+ * @param {object} [opts]
+ * @param {boolean} [opts.trustLocations] — true: dump / import-json; false: MD / AI (§9.4)
  * @returns {{ ok: true, data: object, warnings: string[] } | { ok: false, error: string, warnings: string[] }}
  */
-export function validateItineraryJson(raw) {
+export function validateItineraryJson(raw, { trustLocations = false } = {}) {
   const warnings = [];
   let input = raw;
 
@@ -140,7 +279,7 @@ export function validateItineraryJson(raw) {
         warnings.push(`Día ${day_number}: parada #${i + 1} sin nombre, omitida`);
         continue;
       }
-      stops.push({
+      const stop = {
         kind: asKind(s.kind),
         name,
         detail: asStr(s.detail, 500),
@@ -148,10 +287,14 @@ export function validateItineraryJson(raw) {
         est_duration: asStr(s.est_duration, 80),
         notes: asStr(s.notes, MAX_STR),
         done: !!s.done,
-      });
+      };
+      if (trustLocations) {
+        Object.assign(stop, trustedStopLocation(s, day_number, name, warnings));
+      }
+      stops.push(stop);
     }
 
-    days.push({
+    const day = {
       day_number,
       title: asStr(d.title, 200),
       base: asStr(d.base, 120),
@@ -159,7 +302,11 @@ export function validateItineraryJson(raw) {
       hub: asStr(d.hub, 200),
       notes: asStr(d.notes, MAX_STR),
       stops,
-    });
+    };
+    if (trustLocations) {
+      Object.assign(day, trustedStayLocation(d, day_number, warnings));
+    }
+    days.push(day);
   }
 
   days.sort((a, b) => a.day_number - b.day_number);
