@@ -10,6 +10,7 @@
  *   - entry `index-*.js` ≈ 143.6 KB gzip (sin el body de MapLibre)
  *   - async `maplibre-gl-*.js` ≈ 304.2 KB gzip; CSS mapa ≈ 10.2 KB gzip
  *   - async `location-parse-*.js` ≈ 3.2 KB gzip
+ *   - worker `maplibre-gl-worker-*.js` ≈ 520.5 KB raw (lazy; solo al abrir el mapa)
  * Criterio §8.7: MapLibre no entra en el chunk principal (Δ vendor ≈ 0;
  * glue DayMap/mapStyle << 10 KB gzip vs inlinear el vendor).
  */
@@ -87,17 +88,41 @@ function isRoadPaintLayer(id, type) {
 
 /**
  * Sobrescribe paint de fondo / agua / vías. Conserva glyphs, sprite, sources
- * y deja intactas las capas symbol (sin mutar layout de labels).
+ * y deja intactas las capas symbol salvo color/halo de texto en dark
+ * (nunca toca text-field: el estilo sigue manejando el idioma).
+ *
+ * En dark las vías bajan de opacidad para no competir con los nombres (0.38;
+ * casing 0.65; sendas 0.28), y los labels suben a --fg con halo --bg. El estilo
+ * dark de OpenFreeMap trae labels oscuros pensados para su fondo casi negro;
+ * sobre el sumi de marca se perdían.
  *
  * @param {object} style Style JSON MapLibre
  * @param {ReturnType<typeof readBrandMapColors>} colors
+ * @param {{ dark?: boolean }} [opts]
  * @returns {object}
  */
-export function recolorMapStyle(style, colors) {
+export function recolorMapStyle(style, colors, { dark = false } = {}) {
   if (!style || !Array.isArray(style.layers)) return style;
 
   const layers = style.layers.map((layer) => {
     const { id, type, paint } = layer;
+
+    // Antes del early-return: un label puede no traer bloque paint y MapLibre
+    // le pondría text-color negro por defecto sobre el fondo oscuro.
+    if (dark && type === "symbol" && layer.layout?.["text-field"]) {
+      const next = paint ? { ...paint } : {};
+      const existingHalo = next["text-halo-width"];
+      next["text-color"] = colors.fg;
+      next["text-halo-color"] = colors.bg;
+      // No pisar expresiones zoom/data-driven de estilos custom.
+      next["text-halo-width"] = Array.isArray(existingHalo)
+        ? existingHalo
+        : typeof existingHalo === "number"
+          ? Math.max(existingHalo, 1.2)
+          : 1.2;
+      return { ...layer, paint: next };
+    }
+
     if (!paint) return layer;
 
     if (type === "background" || id === "background") {
@@ -116,10 +141,17 @@ export function recolorMapStyle(style, colors) {
 
     if (isRoadPaintLayer(id, type)) {
       const next = { ...paint };
-      const casing = /casing|subtle|path/i.test(id);
-      const color = casing ? colors.border : colors.fgMuted;
+      const casing = /casing|subtle/i.test(id);
+      const path = /path/i.test(id);
+      const color = casing || path ? colors.border : colors.fgMuted;
       if ("fill-color" in next) next["fill-color"] = color;
       if ("line-color" in next) next["line-color"] = color;
+      // type line excluye fills (road_area_pier) y cubre line-pattern.
+      // No pisar expresiones zoom/data-driven de estilos custom.
+      if (dark && type === "line" && !Array.isArray(next["line-opacity"])) {
+        const base = typeof next["line-opacity"] === "number" ? next["line-opacity"] : 1;
+        next["line-opacity"] = Math.min(base, casing ? 0.65 : path ? 0.28 : 0.38);
+      }
       return { ...layer, paint: next };
     }
 
@@ -142,7 +174,9 @@ export async function loadRecoloredMapStyle(theme, colorEl) {
     throw new Error(`No se pudo cargar el estilo de mapa (${res.status})`);
   }
   const style = await res.json();
-  return recolorMapStyle(style, readBrandMapColors(colorEl));
+  return recolorMapStyle(style, readBrandMapColors(colorEl), {
+    dark: theme === "dark",
+  });
 }
 
 /** @type {Promise<typeof import("maplibre-gl")>|null} */
@@ -155,12 +189,23 @@ let mapLibrePromise = null;
 export function loadMapLibre() {
   if (!mapLibrePromise) {
     mapLibrePromise = (async () => {
-      const [mod] = await Promise.all([
+      const isBrowser = typeof document !== "undefined";
+      const [mod, workerMod] = await Promise.all([
         import("maplibre-gl"),
-        typeof document !== "undefined"
+        // MapLibre 6 resuelve el worker desde un archivo hermano en runtime.
+        // Vite no lo emite solo: `?worker&url` lo bundlea y devuelve su URL.
+        isBrowser
+          ? import("maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url")
+          : Promise.resolve(null),
+        isBrowser
           ? import("maplibre-gl/dist/maplibre-gl.css")
           : Promise.resolve(),
       ]);
+      const setWorkerUrl = mod.setWorkerUrl || mod.default?.setWorkerUrl;
+      const workerUrl = workerMod?.default;
+      if (typeof setWorkerUrl === "function" && typeof workerUrl === "string") {
+        setWorkerUrl(workerUrl);
+      }
       return mod;
     })();
   }

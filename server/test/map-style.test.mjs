@@ -118,7 +118,83 @@ describe("mapStyle (M4-W1/W5)", () => {
       style.layers[4].layout["text-field"],
     );
     assert.equal(byId.place_label.paint["text-color"], "#111");
+    assert.equal(byId.highway_major_inner.paint["line-opacity"], undefined);
     assert.equal(/text-field/.test(JSON.stringify(out.layers.filter((l) => l.type !== "symbol"))), false);
+  });
+
+  it("dark: vías más tenues y labels --fg con halo --bg", () => {
+    const style = {
+      version: 8,
+      layers: [
+        { id: "background", type: "background", paint: { "background-color": "#000" } },
+        { id: "water", type: "fill", paint: { "fill-color": "#000" } },
+        { id: "highway_major_casing", type: "line", paint: { "line-color": "#000" } },
+        { id: "road_area_pier", type: "fill", paint: { "fill-color": "#000" } },
+        {
+          id: "highway_major_inner",
+          type: "line",
+          paint: { "line-color": "#000", "line-opacity": 0.9 },
+        },
+        { id: "highway_path", type: "line", paint: { "line-color": "#000" } },
+        { id: "highway_line_pattern", type: "line", paint: { "line-pattern": "dots" } },
+        {
+          id: "highway_expression_opacity",
+          type: "line",
+          paint: {
+            "line-color": "#000",
+            "line-opacity": ["interpolate", ["linear"], ["zoom"], 10, 0.2, 16, 0.9],
+          },
+        },
+        {
+          id: "place_label",
+          type: "symbol",
+          layout: { "text-field": ["get", "name"] },
+          paint: { "text-color": "#111", "text-halo-width": 1 },
+        },
+        {
+          id: "place_label_wide",
+          type: "symbol",
+          layout: { "text-field": ["get", "name"] },
+          paint: { "text-color": "#111", "text-halo-width": 1.4 },
+        },
+        {
+          id: "bare_label",
+          type: "symbol",
+          layout: { "text-field": ["get", "name"] },
+        },
+      ],
+    };
+    const colors = {
+      bg: "token-bg",
+      bgSunken: "token-sunken",
+      fgMuted: "token-muted",
+      border: "token-border",
+      fg: "token-fg",
+      accent: "token-accent",
+      warn: "token-warn",
+    };
+
+    const out = recolorMapStyle(style, colors, { dark: true });
+    const byId = Object.fromEntries(out.layers.map((l) => [l.id, l]));
+
+    assert.equal(byId.background.paint["background-color"], "token-bg");
+    assert.equal(byId.water.paint["fill-color"], "token-sunken");
+    assert.equal(byId.highway_major_inner.paint["line-opacity"], 0.38);
+    assert.equal(byId.highway_major_casing.paint["line-opacity"], 0.65);
+    assert.equal(byId.highway_path.paint["line-opacity"], 0.28);
+    assert.equal(byId.highway_line_pattern.paint["line-opacity"], 0.38);
+    assert.deepEqual(
+      byId.highway_expression_opacity.paint["line-opacity"],
+      ["interpolate", ["linear"], ["zoom"], 10, 0.2, 16, 0.9],
+    );
+    assert.equal(byId.road_area_pier.paint["line-opacity"], undefined);
+    assert.equal(byId.place_label.paint["text-color"], "token-fg");
+    assert.equal(byId.place_label.paint["text-halo-color"], "token-bg");
+    assert.equal(byId.place_label.paint["text-halo-width"], 1.2);
+    assert.equal(byId.place_label_wide.paint["text-halo-width"], 1.4);
+    assert.equal(byId.bare_label.paint["text-color"], "token-fg");
+    assert.equal(byId.bare_label.paint["text-halo-width"], 1.2);
+    assert.deepEqual(byId.place_label.layout["text-field"], ["get", "name"]);
   });
 
   it("M4-W5: mapStyle.js documenta budget gzip y exporta loadRecoloredMapStyle", () => {

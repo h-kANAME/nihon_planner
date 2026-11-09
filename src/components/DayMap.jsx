@@ -16,7 +16,9 @@ const LINE_LAYER = "day-stops-line-layer";
 const FIT_PADDING = { top: 48, bottom: 56, left: 48, right: 48 };
 const FIT_MAX_ZOOM = 15;
 
-const mapLinkStyle = {
+// Función, no constante: S cambia con el tema y una constante quedaría con los
+// colores del tema inicial (texto oscuro sobre mapa oscuro).
+const mapLinkStyle = () => ({
   ...S.secondary,
   display: "inline-flex",
   alignItems: "center",
@@ -27,7 +29,7 @@ const mapLinkStyle = {
   fontSize: 12,
   minHeight: 44,
   boxSizing: "border-box",
-};
+});
 
 /**
  * @param {'stop'|'stay'} kind
@@ -300,7 +302,7 @@ export function DayMap({
   themeRef.current = theme;
 
   const [status, setStatus] = useState(() => (model.isEmpty ? "empty" : "loading"));
-  const [loadError, setLoadError] = useState(/** @type {string|null} */ (null));
+  const [tilesDegraded, setTilesDegraded] = useState(false);
   const [selected, setSelected] = useState(
     /** @type {null | { kind: 'stop'|'stay', id: string, number?: number, lat: number, lng: number, name: string, stop?: object }} */ (
       null
@@ -331,7 +333,6 @@ export function DayMap({
   useEffect(() => {
     if (model.isEmpty) {
       setStatus("empty");
-      setLoadError(null);
       teardownMap(mapRef, markersRef);
       return undefined;
     }
@@ -340,8 +341,10 @@ export function DayMap({
     if (!host) return undefined;
 
     let cancelled = false;
+    let loaded = false;
+    let degraded = false;
     setStatus("loading");
-    setLoadError(null);
+    setTilesDegraded(false);
 
     (async () => {
       try {
@@ -370,14 +373,25 @@ export function DayMap({
 
         map.on("error", (e) => {
           if (cancelled) return;
-          const errMsg = e?.error?.message || e?.message || "Error de tiles o estilo";
-          setLoadError(errMsg);
-          setStatus("offline");
+          const msg = e?.error?.message || e?.message || "Error de tiles o estilo";
+          // Un tile suelto no debe tapar el mapa: antes de cargar degradamos,
+          // después mostramos un aviso no bloqueante y logueamos una sola vez.
+          if (!loaded) {
+            console.warn("[DayMap]", msg);
+            setStatus("offline");
+            return;
+          }
+          if (!degraded) {
+            degraded = true;
+            console.warn("[DayMap]", msg);
+            setTilesDegraded(true);
+          }
         });
 
         map.once("load", () => {
           if (cancelled || !mapRef.current) return;
-          setLoadError(null);
+          loaded = true;
+          setTilesDegraded(false);
           setStatus("ready");
           paintDay(
             map,
@@ -391,7 +405,7 @@ export function DayMap({
         });
       } catch (e) {
         if (cancelled) return;
-        setLoadError(e?.message || "No se pudo cargar MapLibre");
+        console.warn("[DayMap] No se pudo cargar MapLibre", e);
         setStatus("offline");
       }
     })();
@@ -479,8 +493,7 @@ export function DayMap({
         map.setStyle(style);
       } catch (e) {
         if (cancelled) return;
-        setLoadError(e?.message || "No se pudo aplicar el tema del mapa");
-        setStatus("offline");
+        console.warn("[DayMap] No se pudo aplicar el tema del mapa", e);
       }
     })();
 
@@ -590,21 +603,8 @@ export function DayMap({
               >
                 <div style={S.label}>Mapa no disponible</div>
                 <p style={{ margin: 0, color: "var(--fg-muted)", fontSize: 14, lineHeight: 1.45 }}>
-                  No se pudieron cargar el estilo o los tiles. La lista del día sigue siendo la vía
-                  principal.
+                  No se pudo cargar el mapa. La lista del día sigue disponible con “Cómo llegar”.
                 </p>
-                {loadError ? (
-                  <p
-                    style={{
-                      margin: 0,
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      color: "var(--fg-muted)",
-                    }}
-                  >
-                    {loadError}
-                  </p>
-                ) : null}
               </div>
             )}
 
@@ -690,18 +690,18 @@ export function DayMap({
                       href={popup.directionsUrl}
                       target="_blank"
                       rel="noopener"
-                      style={mapLinkStyle}
+                      style={mapLinkStyle()}
                     >
                       Cómo llegar
                     </a>
                   ) : null}
                   {popup.searchUrl ? (
-                    <a href={popup.searchUrl} target="_blank" rel="noopener" style={mapLinkStyle}>
+                    <a href={popup.searchUrl} target="_blank" rel="noopener" style={mapLinkStyle()}>
                       Ver lugar
                     </a>
                   ) : null}
                   {selected.kind === "stay" && typeof onLocateStay === "function" ? (
-                    <button type="button" style={mapLinkStyle} onClick={onLocateStay}>
+                    <button type="button" style={mapLinkStyle()} onClick={onLocateStay}>
                       {locateCtaLabel(true, "stay")}
                     </button>
                   ) : null}
@@ -710,7 +710,7 @@ export function DayMap({
                   typeof onLocateStop === "function" ? (
                     <button
                       type="button"
-                      style={mapLinkStyle}
+                      style={mapLinkStyle()}
                       onClick={() => onLocateStop(selected.stop)}
                     >
                       {locateCtaLabel(true, "stop")}
@@ -732,6 +732,16 @@ export function DayMap({
               }}
             >
               Trazo esquemático entre paradas ubicadas — no es una ruta.
+            </p>
+          )}
+
+          {status === "ready" && tilesDegraded && (
+            <p
+              data-day-map-degraded
+              role="status"
+              style={{ margin: 0, fontSize: 12, color: "var(--warn-text)", fontFamily: "var(--font-mono)" }}
+            >
+              Algunos tiles no cargaron. La lista del día sigue disponible.
             </p>
           )}
 
@@ -768,7 +778,7 @@ export function DayMap({
                     {typeof onLocateStop === "function" ? (
                       <button
                         type="button"
-                        style={{ ...S.ghost, flexShrink: 0, color: "var(--accent)" }}
+                        style={{ ...S.ghost, flexShrink: 0, color: "var(--accent-text)" }}
                         onClick={() => onLocateStop(stop)}
                       >
                         {locateCtaLabel(false, "stop")} →
