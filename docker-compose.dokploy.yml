@@ -1,6 +1,15 @@
 # docker-compose.dokploy.yml
 # Dokploy → Compose Path: ./docker-compose.dokploy.yml
-# Domain → Service: nihonweb · Port: 8787 · HTTPS/Let's Encrypt
+# Domain → Host: nipon.trip · Service: nihonweb · Port: 8787 · HTTPS / Let's Encrypt
+#
+# Env requeridas en Dokploy (no usar env_file en prod):
+#   FRONTEND_ORIGIN=https://nipon.trip
+#   COOKIE_SECURE=true
+#   GOOGLE_CLIENT_ID / VITE_GOOGLE_CLIENT_ID (build arg + runtime)
+#   ALLOWED_EMAILS
+#   SESSION_SECRET (≥32 chars)
+#   GEMINI_API_KEY (y opcional DEEPSEEK_API_KEY / AI_*)
+# Opcionales: VITE_MAP_STYLE_LIGHT, VITE_MAP_STYLE_DARK, LOG_LEVEL
 
 services:
   nihonweb:
@@ -9,17 +18,34 @@ services:
       target: prod
       args:
         VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
+        VITE_MAP_STYLE_LIGHT: ${VITE_MAP_STYLE_LIGHT:-https://tiles.openfreemap.org/styles/positron}
+        VITE_MAP_STYLE_DARK: ${VITE_MAP_STYLE_DARK:-https://tiles.openfreemap.org/styles/dark}
     restart: unless-stopped
-    env_file: .env
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
-      PORT: 8787
+      PORT: "8787"
       DB_PATH: /app/data/nihon.db
       SERVE_STATIC: "true"
       STATIC_DIR: dist
-      COOKIE_SECURE: "true"
-      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-https://nipon.trip}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
+      ALLOWED_EMAILS: ${ALLOWED_EMAILS}
+      SESSION_SECRET: ${SESSION_SECRET}
+      AI_PROVIDER: ${AI_PROVIDER:-google}
+      AI_MODEL: ${AI_MODEL:-gemini-flash-lite-latest}
+      AI_BASE_URL: ${AI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      AI_FALLBACK_PROVIDER: ${AI_FALLBACK_PROVIDER:-deepseek}
+      AI_FALLBACK_MODEL: ${AI_FALLBACK_MODEL:-deepseek-chat}
+      AI_FALLBACK_BASE_URL: ${AI_FALLBACK_BASE_URL:-https://api.deepseek.com/v1}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-2048}
+      AI_MAX_CONTINUATIONS: ${AI_MAX_CONTINUATIONS:-3}
+      COMPACT_THRESHOLD: ${COMPACT_THRESHOLD:-40}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     expose:
       - "8787"
     volumes:
