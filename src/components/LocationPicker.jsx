@@ -618,6 +618,7 @@ export function LocationPicker({ open, target = "stop", stop = null, day, onClos
                 </div>
                 <textarea
                   ref={textareaRef}
+                  aria-label={pickerMode === "batch" ? "Pegar lote" : "Pegar ubicación"}
                   value={pickerMode === "batch" ? batchText : rawInput}
                   disabled={busy || parseBusy}
                   onChange={(e) =>

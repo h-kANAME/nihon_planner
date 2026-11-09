@@ -831,7 +831,7 @@ function ItineraryDayDetailModal({
             {showMap && !isDesktop && (
               <ListaMapaToggle value={pane} onChange={setPane} />
             )}
-            <button type="button" style={S.ghost} onClick={onClose}>✕</button>
+            <button type="button" style={S.ghost} onClick={onClose} aria-label="Cerrar">✕</button>
           </div>
         </div>
 
@@ -1772,6 +1772,9 @@ function Plan({
       <Card>
         <div style={S.label}>Itinerario</div>
         <input
+          id="trip-title"
+          name="title"
+          aria-label="Título del viaje"
           style={S.input}
           placeholder="Título del viaje"
           value={meta.title || ""}
@@ -1779,9 +1782,11 @@ function Plan({
           onChange={(e) => setMeta((m) => ({ ...m, title: e.target.value }))}
           onBlur={() => saveMeta({ title: meta.title || "" })}
         />
-        <div style={{ fontSize: 11, color: C.onSurfaceVariant, marginBottom: 4 }}>Fecha ancla (Día 1) — opcional</div>
+        <label htmlFor="trip-anchor-date" style={{ display: "block", fontSize: 11, color: C.onSurfaceVariant, marginBottom: 4 }}>Fecha ancla (Día 1) — opcional</label>
         <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
           <input
+            id="trip-anchor-date"
+            name="anchor_date"
             style={{ ...S.input, flex: 1, marginBottom: 0 }}
             type="date"
             value={meta.anchor_date || ""}
@@ -1837,6 +1842,9 @@ function Plan({
       {days.length > 0 && (
         <Card>
           <input
+            id="plan-search"
+            name="q"
+            aria-label="Buscar día, base o parada"
             style={{ ...S.input, marginBottom: 8 }}
             type="search"
             placeholder="Buscar día, base, parada…"
@@ -1913,7 +1921,7 @@ function Plan({
                         .join(" · ")}
                     </Meta>
                   </button>
-                  <button type="button" style={{ ...S.ghost, minWidth: 40 }} title="Eliminar día" onClick={() => deleteDay(d)}>✕</button>
+                  <button type="button" style={{ ...S.ghost, minWidth: 40 }} aria-label={`Eliminar día ${d.day_number}`} title="Eliminar día" onClick={() => deleteDay(d)}>✕</button>
                 </div>
               );
             })}
@@ -2233,20 +2241,37 @@ function ItineraryDaySheet({
         ["base", "Base / ciudad", "text"],
         ["stay_label", "Dónde dormís", "text"],
         ["hub", "Hub logístico", "text"],
-      ].map(([k, ph, type]) => (
-        <div key={k}>
-          <div style={{ fontSize: 11, color: C.onSurfaceVariant, margin: "2px 0 4px" }}>{ph}</div>
-          <input
-            style={{ ...S.input, marginBottom: 10 }}
-            type={type}
-            value={v[k] || ""}
-            disabled={busy}
-            onChange={(e) => onChangeValues({ ...v, [k]: e.target.value })}
-          />
-        </div>
-      ))}
-      <div style={{ fontSize: 11, color: C.onSurfaceVariant, margin: "2px 0 4px" }}>Notas del día</div>
+      ].map(([k, label, type]) => {
+        const id = `day-field-${sheet.id || "new"}-${k}`;
+        return (
+          <div key={k}>
+            <label
+              htmlFor={id}
+              style={{ display: "block", fontSize: 11, color: C.onSurfaceVariant, margin: "2px 0 4px" }}
+            >
+              {label}
+            </label>
+            <input
+              id={id}
+              name={k}
+              style={{ ...S.input, marginBottom: 10 }}
+              type={type}
+              value={v[k] || ""}
+              disabled={busy}
+              onChange={(e) => onChangeValues({ ...v, [k]: e.target.value })}
+            />
+          </div>
+        );
+      })}
+      <label
+        htmlFor={`day-notes-${sheet.id || "new"}`}
+        style={{ display: "block", fontSize: 11, color: C.onSurfaceVariant, margin: "2px 0 4px" }}
+      >
+        Notas del día
+      </label>
       <textarea
+        id={`day-notes-${sheet.id || "new"}`}
+        name="notes"
         style={{ ...S.input, minHeight: 80, resize: "vertical", marginBottom: 14 }}
         value={v.notes || ""}
         disabled={busy}
@@ -2278,13 +2303,14 @@ function ItineraryDaySheet({
           {stops.length === 0 && <Empty text="Sin paradas. Agregá la primera." />}
           {stops.map((stop, i) => {
             const stopResolved = isLocationResolved(stop, day);
+            const stopLabel = (action) => (stop.name ? `${action}: ${stop.name}` : action);
             return (
             <div key={stop.id} style={{ borderBottom: `1px solid ${C.outlineVariant}`, padding: "10px 0" }}>
               <div style={{ display: "flex", gap: 6 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
                     <div style={{ fontWeight: 600, fontSize: 14, textDecoration: stop.done ? "line-through" : "none" }}>
-                      {stop.kind !== "stop" ? `[${stop.kind}] ` : `${i + 1}. `}{stop.name}
+                      {stop.kind === "hub_out" ? "Salida: " : stop.kind === "hub_back" ? "Regreso: " : `${i + 1}. `}{stop.name}
                     </div>
                     <LocationBadge
                       mode={stop.location_mode}
@@ -2294,11 +2320,11 @@ function ItineraryDaySheet({
                   </div>
                   <Meta>{[stop.how_to_get, stop.est_duration, stop.detail].filter(Boolean).join(" · ")}</Meta>
                 </div>
-                <button type="button" style={{ ...S.ghost, minWidth: 44, minHeight: 44 }} disabled={busy || i === 0} onClick={() => onMoveStop(stop, -1)}>↑</button>
-                <button type="button" style={{ ...S.ghost, minWidth: 44, minHeight: 44 }} disabled={busy || i === stops.length - 1} onClick={() => onMoveStop(stop, 1)}>↓</button>
-                <button type="button" style={{ ...S.ghost, minWidth: 44, minHeight: 44 }} disabled={busy} onClick={() => onToggleStopDone(stop)}>{stop.done ? "✓" : "○"}</button>
-                <button type="button" style={{ ...S.ghost, minWidth: 44, minHeight: 44 }} disabled={busy} onClick={() => onEditStop(stop)}>✎</button>
-                <button type="button" style={{ ...S.ghost, minWidth: 44, minHeight: 44 }} disabled={busy} onClick={() => onDeleteStop(stop)}>✕</button>
+                <button type="button" aria-label={stopLabel("Subir parada")} style={{ ...S.ghost, minWidth: 44, minHeight: 44 }} disabled={busy || i === 0} onClick={() => onMoveStop(stop, -1)}>↑</button>
+                <button type="button" aria-label={stopLabel("Bajar parada")} style={{ ...S.ghost, minWidth: 44, minHeight: 44 }} disabled={busy || i === stops.length - 1} onClick={() => onMoveStop(stop, 1)}>↓</button>
+                <button type="button" aria-label={stopLabel("Parada hecha")} aria-pressed={!!stop.done} style={{ ...S.ghost, minWidth: 44, minHeight: 44 }} disabled={busy} onClick={() => onToggleStopDone(stop)}>{stop.done ? "✓" : "○"}</button>
+                <button type="button" aria-label={stopLabel("Editar parada")} style={{ ...S.ghost, minWidth: 44, minHeight: 44 }} disabled={busy} onClick={() => onEditStop(stop)}>✎</button>
+                <button type="button" aria-label={stopLabel("Eliminar parada")} style={{ ...S.ghost, minWidth: 44, minHeight: 44 }} disabled={busy} onClick={() => onDeleteStop(stop)}>✕</button>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
                 {onLocateStop && (
@@ -2339,6 +2365,7 @@ function ItineraryDaySheet({
       <div
         role="dialog"
         aria-modal="true"
+        aria-labelledby="day-sheet-title"
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%",
@@ -2353,14 +2380,14 @@ function ItineraryDaySheet({
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "14px 16px", borderBottom: `1px solid ${C.outlineVariant}` }}>
-          <div style={{ fontWeight: 700, fontSize: 16, minWidth: 0 }}>
+          <div id="day-sheet-title" style={{ fontWeight: 700, fontSize: 16, minWidth: 0 }}>
             {isEdit ? `Día ${v.day_number}${cal ? ` · ${cal}` : ""}` : "Nuevo día"}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             {showMap && !isDesktop && (
               <ListaMapaToggle value={pane} onChange={setPane} />
             )}
-            <button type="button" style={S.ghost} onClick={onClose} disabled={busy}>✕</button>
+            <button type="button" style={S.ghost} onClick={onClose} disabled={busy} aria-label="Cerrar">✕</button>
           </div>
         </div>
         <div
@@ -2451,6 +2478,7 @@ function ItineraryStopSheet({ sheet, stop = null, day = null, busy, onChange, on
       <div
         role="dialog"
         aria-modal="true"
+        aria-labelledby="stop-sheet-title"
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%",
@@ -2464,7 +2492,7 @@ function ItineraryStopSheet({ sheet, stop = null, day = null, busy, onChange, on
         }}
       >
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <div style={{ fontWeight: 700, fontSize: 16 }}>
+          <div id="stop-sheet-title" style={{ fontWeight: 700, fontSize: 16 }}>
             {sheet.mode === "edit" ? "Editar parada" : "Nueva parada"}
           </div>
           {stop && (
@@ -2481,19 +2509,31 @@ function ItineraryStopSheet({ sheet, stop = null, day = null, busy, onChange, on
           ["how_to_get", "Cómo llegar"],
           ["est_duration", "Est. en sitio"],
           ["notes", "Notas / reserva"],
-        ].map(([k, ph]) => (
-          <div key={k}>
-            <div style={{ fontSize: 11, color: C.onSurfaceVariant, marginBottom: 4 }}>{ph}</div>
-            <input
-              style={{ ...S.input, marginBottom: 10 }}
-              value={v[k] || ""}
-              disabled={busy}
-              onChange={(e) => onChange({ ...v, [k]: e.target.value })}
-            />
-          </div>
-        ))}
-        <div style={{ fontSize: 11, color: C.onSurfaceVariant, marginBottom: 4 }}>Tipo</div>
+        ].map(([k, label]) => {
+          const id = `stop-field-${sheet.id || "new"}-${k}`;
+          return (
+            <div key={k}>
+              <label
+                htmlFor={id}
+                style={{ display: "block", fontSize: 11, color: C.onSurfaceVariant, marginBottom: 4 }}
+              >
+                {label}
+              </label>
+              <input
+                id={id}
+                name={k}
+                style={{ ...S.input, marginBottom: 10 }}
+                value={v[k] || ""}
+                disabled={busy}
+                onChange={(e) => onChange({ ...v, [k]: e.target.value })}
+              />
+            </div>
+          );
+        })}
+        <label htmlFor="stop-field-kind" style={{ display: "block", fontSize: 11, color: C.onSurfaceVariant, marginBottom: 4 }}>Tipo</label>
         <select
+          id="stop-field-kind"
+          name="kind"
           style={{ ...S.input, marginBottom: 14 }}
           value={v.kind || "stop"}
           disabled={busy}
@@ -2821,7 +2861,7 @@ function Asistente({ sessions, setSessions }) {
         <div style={{ background: C.card, border: `1px solid ${C.accent}`, borderRadius: 14, padding: 12, marginBottom: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <span style={{ ...S.label, marginBottom: 0 }}>Exportar JSON</span>
-            <button style={S.ghost} onClick={() => setExportText(null)}>✕</button>
+            <button style={S.ghost} onClick={() => setExportText(null)} aria-label="Cerrar">✕</button>
           </div>
           <textarea id="export-ta" readOnly value={exportText}
             style={{ ...S.input, height: 140, fontFamily: "monospace", fontSize: 11, resize: "vertical" }}

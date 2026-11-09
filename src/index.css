@@ -74,6 +74,25 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+
+/* Foco con el acento de texto: AA también sobre sumi (maru-300). */
+:focus-visible {
+  outline-color: var(--accent-text);
+}
+
+/* Los inputs traen outline:none inline; el anillo solo aparece por teclado. */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent-text) !important;
+  outline-offset: 2px;
+}
+
 input,
 select,
 textarea {

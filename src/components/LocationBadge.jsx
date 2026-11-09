@@ -19,7 +19,7 @@ const TONE_STYLE = {
   },
   muted: {
     background: "var(--bg-sunken)",
-    color: "var(--fg-muted)",
+    color: "var(--fg)",
     border: "1px solid var(--border)",
   },
 };
