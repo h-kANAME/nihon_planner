@@ -50,6 +50,17 @@ docker compose --profile prod up -d --build
 
 Un solo contenedor sirve API + SPA (`SERVE_STATIC=true`). Datos SQLite en el volumen `nihon_data` (`/app/data/nihon.db`).
 
+### Dokploy (AWS / Traefik)
+
+- **Compose Path:** `./docker-compose.dokploy.yml`
+- **Domain:** Host `nipon.trip.kyz-apps.site` · Service `nihonweb` · Port `8787` · HTTPS / Let's Encrypt
+- **FRONTEND_ORIGIN:** `https://nipon.trip.kyz-apps.site`
+- **Google OAuth:** Authorized JavaScript origins + redirect URIs con `https://nipon.trip.kyz-apps.site`
+- **DNS:** A `nipon.trip.kyz-apps.site` → `18.230.56.152` (el wildcard Hostmar no apunta a este VPS AWS)
+- Secretos solo en env de Dokploy (no `env_file` en el compose Dokploy)
+
+Variables mínimas: `FRONTEND_ORIGIN`, `COOKIE_SECURE=true`, `GOOGLE_CLIENT_ID`, `VITE_GOOGLE_CLIENT_ID`, `ALLOWED_EMAILS`, `SESSION_SECRET`, `GEMINI_API_KEY`.
+
 Backup en frío:
 
 ```bash
