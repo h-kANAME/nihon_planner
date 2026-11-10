@@ -89,7 +89,7 @@ async function main() {
   await itineraryRoutes(app, { db, ai, config });
   await ratesRoutes(app, { db, config });
   await sessionsRoutes(app, { db, ai, config });
-  await importRoutes(app, { db });
+  await importRoutes(app, { db, config });
   await adminRoutes(app, { config, db });
 
   if (config.serveStatic) {

@@ -6,17 +6,23 @@ export async function ratesRoutes(app, { db, config }) {
   app.put("/api/v1/rates", async (request, reply) => {
     const body = request.body || {};
     const current = getRates(db);
+    const usdArs = body.usdArs != null ? Number(body.usdArs) : current.usdArs;
+    const usdJpy = body.usdJpy != null ? Number(body.usdJpy) : current.usdJpy;
+    if (!(usdArs > 0) || !(usdJpy > 0)) {
+      return sendError(reply, 400, "VALIDATION", "Cotizaciones inválidas");
+    }
+    // El adapter mirror reenvía la tasa que acaba de traer el refresh: si no cambió,
+    // no pisar source/updatedAt (rompe el caché de 30 min y la etiqueta de la fuente).
+    if (usdArs === current.usdArs && usdJpy === current.usdJpy) return current;
+
     const next = {
       ...current,
-      usdArs: body.usdArs != null ? Number(body.usdArs) : current.usdArs,
-      usdJpy: body.usdJpy != null ? Number(body.usdJpy) : current.usdJpy,
+      usdArs,
+      usdJpy,
       source: "manual",
       updatedAt: new Date().toISOString(),
       blue: false,
     };
-    if (!(next.usdArs > 0) || !(next.usdJpy > 0)) {
-      return sendError(reply, 400, "VALIDATION", "Cotizaciones inválidas");
-    }
     setRates(db, next);
     return next;
   });

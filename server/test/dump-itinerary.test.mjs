@@ -154,9 +154,9 @@ test("trustLocations true conserva lat/lng/mode/precision/stay; false los descar
 });
 
 test("Dump: export/dump → import restaura itinerario con coordenadas y done", async (t) => {
-  const { db, dir } = tmpDb();
+  const { db, dir, dbPath } = tmpDb();
   const app = Fastify({ logger: false });
-  await importRoutes(app, { db });
+  await importRoutes(app, { db, config: { dbPath } });
   t.after(async () => {
     await app.close();
     db.close();

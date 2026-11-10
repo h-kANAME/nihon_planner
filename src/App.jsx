@@ -264,15 +264,19 @@ export default function App() {
     setReady(true);
   }, []);
 
-  useEffect(() => {
-    if (user) loadTrip();
-  }, [user, loadTrip]);
-
-  /* persistencia (Fase 1 adapter) */
-  useEffect(() => { if (ready && user) save("jp:expenses", expenses); }, [expenses, ready, user]);
-  useEffect(() => { if (ready && user) save("jp:rates", rates); }, [rates, ready, user]);
-
   const [rateStatus, setRateStatus] = useState("idle");
+
+  /** Cotización del momento: el server decide con su caché de 30 min (sin force). */
+  const autoRefreshRates = useCallback(async () => {
+    try {
+      const next = await api.refreshRates(false);
+      setRates(next);
+      setRateStatus("ok");
+    } catch {
+      setRateStatus("offline");
+    }
+  }, []);
+
   async function fetchRates() {
     setRateStatus("loading");
     try {
@@ -283,6 +287,21 @@ export default function App() {
       setRateStatus("offline");
     }
   }
+
+  useEffect(() => {
+    if (!user) return;
+    loadTrip().then(autoRefreshRates);
+  }, [user, loadTrip, autoRefreshRates]);
+
+  /* persistencia (Fase 1 adapter) */
+  useEffect(() => { if (ready && user) save("jp:expenses", expenses); }, [expenses, ready, user]);
+  useEffect(() => { if (ready && user) save("jp:rates", rates); }, [rates, ready, user]);
+
+  /** Restore de viaje: recarga gastos, tasas, sesiones y refresca la cotización. */
+  const onTripRestored = useCallback(async () => {
+    await loadTrip();
+    await autoRefreshRates();
+  }, [loadTrip, autoRefreshRates]);
 
   const convert = useMemo(() => makeConverter(rates), [rates]);
 
@@ -435,6 +454,7 @@ export default function App() {
               onFocusConsumed={() => setFocusDayNumber(null)}
               focusPendingLocations={focusPendingLocations}
               onPendingFocusConsumed={() => setFocusPendingLocations(false)}
+              onTripRestored={onTripRestored}
             />
           )}
           {tab === "ai" && <Asistente sessions={sessions} setSessions={setSessions} />}
@@ -1401,6 +1421,7 @@ function Plan({
   onFocusConsumed,
   focusPendingLocations = false,
   onPendingFocusConsumed,
+  onTripRestored,
 }) {
   const isDesktop = useIsDesktop();
   const [meta, setMeta] = useState({ title: "", anchor_date: null });
@@ -1409,6 +1430,8 @@ function Plan({
   const [error, setError] = useState(null);
   const [warnings, setWarnings] = useState([]);
   const [importing, setImporting] = useState(false);
+  const [tripBusy, setTripBusy] = useState(false);
+  const [tripInfo, setTripInfo] = useState(null);
   const [importProgress, setImportProgress] = useState(null);
   const [query, setQuery] = useState("");
   /** Filtro Plan §8.3: solo días con pending>0 (lista de días + hint). */
@@ -1420,6 +1443,7 @@ function Plan({
   const [locationPicker, setLocationPicker] = useState(null);
   const [busy, setBusy] = useState(false);
   const importRef = useRef(null);
+  const tripRef = useRef(null);
   const [askConfirm, confirmNode] = useConfirmDialog();
 
   const refresh = useCallback(async () => {
@@ -1609,6 +1633,73 @@ function Plan({
       URL.revokeObjectURL(url);
     } catch (e) {
       setError(e.message);
+    }
+  };
+
+  /** Archivo de viaje completo (§9.4): gastos + logística + tasas + sesiones + itinerario. */
+  const exportTrip = async () => {
+    setError(null);
+    setTripInfo(null);
+    try {
+      const dump = await api.exportDump();
+      const blob = new Blob([JSON.stringify(dump, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `nihon-viaje-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const importTrip = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError(null);
+    setTripInfo(null);
+    setWarnings([]);
+
+    let payload;
+    try {
+      payload = JSON.parse(await file.text());
+    } catch {
+      setError("El archivo no es JSON válido");
+      return;
+    }
+    const TRIP_KEYS = ["jp:expenses", "jp:itinerary", "jp:rates", "jp:logistics"];
+    if (!TRIP_KEYS.some((k) => payload?.[k] != null)) {
+      setError("Ese JSON no es un respaldo de viaje: no trae gastos ni itinerario");
+      return;
+    }
+
+    const ok = await askConfirm({
+      title: "Restaurar viaje",
+      message:
+        "Esto reemplaza TODOS los gastos y el itinerario actuales por el contenido del archivo. Se guarda un snapshot antes. ¿Continuar?",
+      confirmLabel: "Restaurar y reemplazar",
+      danger: true,
+    });
+    if (!ok) return;
+
+    setTripBusy(true);
+    try {
+      const res = await api.importData(payload);
+      await refresh();
+      await onTripRestored?.(res);
+      const n = res?.imported?.expenses ?? 0;
+      const d = res?.imported?.days ?? 0;
+      setTripInfo(
+        `Viaje restaurado: ${n} ${n === 1 ? "gasto" : "gastos"}, ${d} ${d === 1 ? "día" : "días"}.`,
+      );
+    } catch (err) {
+      setError(err.message || "Error al restaurar el viaje");
+    } finally {
+      setTripBusy(false);
     }
   };
 
@@ -1819,11 +1910,33 @@ function Plan({
           </button>
           <input ref={importRef} type="file" accept=".md,text/markdown,text/plain" style={{ display: "none" }} onChange={onImportFile} />
           <button type="button" style={S.secondary} disabled={importing || busy} onClick={onExport}>Exportar .md</button>
-          <button type="button" style={{ ...S.primary, width: "auto", padding: "0 16px", marginTop: 0 }} disabled={importing || busy} onClick={openCreateDay}>
+          <button
+            type="button"
+            style={S.secondary}
+            disabled={importing || tripBusy || busy}
+            onClick={() => tripRef.current?.click()}
+          >
+            {tripBusy ? "Restaurando…" : "Importar viaje"}
+          </button>
+          <input
+            ref={tripRef}
+            type="file"
+            accept="application/json,.json"
+            aria-label="Restaurar viaje desde JSON"
+            style={{ display: "none" }}
+            onChange={importTrip}
+          />
+          <button type="button" style={S.secondary} disabled={importing || tripBusy || busy} onClick={exportTrip}>
+            Exportar viaje
+          </button>
+          <button type="button" style={{ ...S.primary, width: "auto", padding: "0 16px", marginTop: 0 }} disabled={importing || tripBusy || busy} onClick={openCreateDay}>
             + Día
           </button>
         </div>
         {importProgress && <ImportProgressOverlay progress={importProgress} />}
+        {tripInfo && (
+          <div style={{ ...S.label, marginTop: 10, marginBottom: 0, color: C.indigo }}>{tripInfo}</div>
+        )}
         {warnings.length > 0 && (
           <div style={{ ...S.warn, marginTop: 10 }}>
             Import OK con avisos: {warnings.slice(0, 5).join(" · ")}
@@ -2810,6 +2923,11 @@ function Asistente({ sessions, setSessions }) {
     try {
       const text = await file.text();
       const payload = JSON.parse(text);
+      if (payload["jp:expenses"] || payload["jp:itinerary"]) {
+        throw new Error(
+          "Ese archivo es un respaldo de viaje. Restauralo con «Importar viaje» en la pestaña Plan.",
+        );
+      }
       if (!payload.herramienta && !payload.tipo && !payload.sesion && !payload["jp:sessions"]) {
         throw new Error("JSON no parece un export de Nihon Planner");
       }

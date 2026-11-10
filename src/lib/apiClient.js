@@ -22,7 +22,7 @@ async function request(path, options = {}) {
     data = { raw: text };
   }
   if (!res.ok) {
-    const err = new Error(data?.error?.message || `HTTP ${res.status}`);
+    const err = new Error(data?.error?.message || data?.message || `HTTP ${res.status}`);
     err.status = res.status;
     err.code = data?.error?.code;
     err.data = data;
