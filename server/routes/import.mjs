@@ -12,6 +12,8 @@ import {
 import { validateItineraryJson } from "../itinerary/schema.mjs";
 import { replaceItinerary, itineraryToCanonical } from "../itinerary/store.mjs";
 import { createImportSnapshot } from "../itinerary/snapshot.mjs";
+import { fetchGoogleDocText } from "../googleDoc/fetchDoc.mjs";
+import { parseGoogleDocLogistics } from "../googleDoc/parseLogistics.mjs";
 
 /** Marcador del archivo de viaje (§9.4). v1 = dump sin marcador. */
 const TRIP_EXPORT_VERSION = 2;
@@ -283,6 +285,71 @@ export async function importRoutes(app, { db, config }) {
       request.log.error({ err: e.message }, "Import falló");
       return sendError(reply, 400, "IMPORT_FAILED", e.message);
     }
+  });
+
+  /**
+   * Importa trámites / vuelos / alojamientos / reservas desde un Google Doc
+   * compartido (anyone with the link). Upsert por ids `gdoc-*`.
+   * Body opcional: `{ docId?: string }` — default config.googleDocItineraryId.
+   */
+  app.post("/api/v1/import/google-doc", async (request, reply) => {
+    const body = request.body || {};
+    const docId =
+      String(body.docId || body.doc_id || config?.googleDocItineraryId || app.config?.googleDocItineraryId || "").trim();
+    if (!docId) {
+      return sendError(
+        reply,
+        400,
+        "DOC_ID_REQUIRED",
+        "Falta GOOGLE_DOC_ITINERARY_ID o body.docId",
+      );
+    }
+
+    let text;
+    try {
+      text = await fetchGoogleDocText(docId);
+    } catch (e) {
+      request.log.error({ err: e.message, code: e.code }, "Google Doc fetch falló");
+      const status = e.status === 401 || e.status === 403 ? 502 : 502;
+      return sendError(reply, status, e.code || "DOC_FETCH_FAILED", e.message);
+    }
+
+    const parsed = parseGoogleDocLogistics(text);
+    const summary = { docs: 0, flights: 0, stays: 0, bookings: 0 };
+
+    try {
+      const tx = db.transaction(() => {
+        for (const f of parsed.flights) {
+          if (upsertLogisticsAsExpense(db, "flight", f)) summary.flights += 1;
+        }
+        for (const s of parsed.stays) {
+          if (upsertLogisticsAsExpense(db, "stay", s)) summary.stays += 1;
+        }
+        for (const b of parsed.bookings) {
+          if (upsertLogisticsAsExpense(db, "booking", b)) summary.bookings += 1;
+        }
+        for (const d of parsed.docs) {
+          if (upsertLogisticsAsExpense(db, "doc", d)) summary.docs += 1;
+        }
+      });
+      tx();
+    } catch (e) {
+      request.log.error({ err: e.message }, "Google Doc import falló");
+      return sendError(reply, 400, "IMPORT_FAILED", e.message);
+    }
+
+    return {
+      ok: true,
+      docId,
+      imported: summary,
+      warnings: parsed.warnings,
+      preview: {
+        docs: parsed.docs.map((d) => d.label),
+        flights: parsed.flights.map((f) => f.route),
+        stays: parsed.stays.map((s) => s.name),
+        bookings: parsed.bookings.map((b) => b.name),
+      },
+    };
   });
 
   app.get("/api/v1/export/dump", async () => {

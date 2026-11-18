@@ -441,6 +441,7 @@ export default function App() {
               onOpenPlanDay={openPlanDay}
               onOpenGastos={() => setTab("gastos")}
               onLocatePending={openPlanPendingLocations}
+              onReloadTrip={loadTrip}
             />
           )}
           {tab === "gastos" && <Gastos expenses={expenses} setExpenses={setExpenses} convert={convert} totals={totals} />}
@@ -475,13 +476,24 @@ export default function App() {
 const ITINERARY_PAGE = 8;
 
 /* ================= RESUMEN ================= */
-function Resumen({ theme = "light", totals, expenses, rates, onOpenPlanDay, onOpenGastos, onLocatePending }) {
+function Resumen({
+  theme = "light",
+  totals,
+  expenses,
+  rates,
+  onOpenPlanDay,
+  onOpenGastos,
+  onLocatePending,
+  onReloadTrip,
+}) {
   const isDesktop = useIsDesktop();
   const [dash, setDash] = useState(null);
   const [previewDay, setPreviewDay] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState(null);
   const [previewAnchor, setPreviewAnchor] = useState(null);
+  const [gdocBusy, setGdocBusy] = useState(false);
+  const [gdocMsg, setGdocMsg] = useState(null);
   /** @type {[{ target: 'stop'|'stay', dayId: string, stopId?: string }|null, Function]} */
   const [locationPicker, setLocationPicker] = useState(null);
 
@@ -574,6 +586,32 @@ function Resumen({ theme = "light", totals, expenses, rates, onOpenPlanDay, onOp
           v={fmt(est.pendingLogisticsUSD, "USD")}
           accent={est.pendingLogisticsUSD > 0}
         />
+        <button
+          type="button"
+          style={{ ...S.secondary, marginTop: 10, width: "100%", minHeight: 44 }}
+          disabled={gdocBusy}
+          onClick={async () => {
+            setGdocBusy(true);
+            setGdocMsg(null);
+            try {
+              const res = await api.importGoogleDoc();
+              const s = res.imported || {};
+              setGdocMsg(
+                `Doc OK · ${s.docs || 0} trámites · ${s.flights || 0} vuelos · ${s.stays || 0} stays · ${s.bookings || 0} reservas`,
+              );
+              await onReloadTrip?.();
+            } catch (e) {
+              setGdocMsg(e.message || "Error al importar Google Doc");
+            } finally {
+              setGdocBusy(false);
+            }
+          }}
+        >
+          {gdocBusy ? "Importando Doc…" : "Sincronizar Google Doc"}
+        </button>
+        {gdocMsg && (
+          <div style={{ fontSize: 12, color: C.soft, marginTop: 8, lineHeight: 1.4 }}>{gdocMsg}</div>
+        )}
         <button type="button" style={{ ...S.ghost, marginTop: 8, fontSize: 13 }} onClick={onOpenGastos}>
           Gestionar en Gastos →
         </button>

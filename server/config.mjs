@@ -120,6 +120,11 @@ export function loadConfig() {
 
     compactThreshold: Number(process.env.COMPACT_THRESHOLD || 40),
     ratesCacheMinutes: 30,
+
+    /** Google Doc de organización (trámites/reservas/stays). Compartido “anyone with link”. */
+    googleDocItineraryId:
+      process.env.GOOGLE_DOC_ITINERARY_ID ||
+      "1NaDgQ66jdQntV6Ubju5B_1qw7RgrZy3Dfrjp8IHryq8",
   };
 }
 

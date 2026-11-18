@@ -185,6 +185,9 @@ export const api = {
   },
   importItineraryJson: (body) =>
     request("/itinerary/import-json", { method: "POST", body: JSON.stringify(body) }),
+  /** Importa logistics desde Google Doc (trámites / stays / reservas). */
+  importGoogleDoc: (body = {}) =>
+    request("/import/google-doc", { method: "POST", body: JSON.stringify(body) }),
   exportItineraryMd: async () => {
     const res = await fetch(`${BASE}/itinerary/export.md`, { credentials: "include" });
     const text = await res.text();

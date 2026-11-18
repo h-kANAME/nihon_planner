@@ -1,0 +1,1958 @@
+﻿﻿VIAJE JAPÓN (Abril 2028)
+________________
+
+
+TRÁMITES Y ORGANIZACIÓN PREVIA:
+* PASAPORTE: sacar turno por “Mi Argentina” trámite Renaper -Registro Nacional de las Personas- llevar DNI vigente (foto, huella y firma se hace en el momento) costo aproximado $30 USD c/u, tarde de 15 y 30 días en llegar a domicilio realizar entre enero y abril de 2027
+
+
+NO es necesario hacer el tramite en Buenos Aires, se puede hacer en registro civil u oficina de documentación de Santa Fe, OJO hay que avisar al operador que queremos declarar un domicilio de entrega alternativo o que lleguen en la oficina donde se realizó el trámite (sino van a ir a superí)
+
+
+**No necesitamos visa para Japón (porque vamos menos de 90 días) ni para hacer tránsito internacional en el aeropuerto (siempre que la escala sea en Brasil, Europa o Medio Oriente, no salgamos de la zona de tránsito y ambos tramos estén en el mismo boleto).
+
+
+* PASAJES: tener en cuenta no sacar con escalas en países sin visado (como EEUU por ej), ver si conviene más Haneda o Narita a la ida, la vuelta buscar desde Osaka. Aerolínea de preferencia Emirates, costo aproximado de $2.200 USD c/u ida y vuelta. Sacar aproximadamente en abril 2027.
+
+
+* LICENCIA DE CONDUCIR: se saca el Permiso Internacional de Conducir (IDP) en el Automóvil Club Argentino (ACA), puede hacerse en una sede en Santa Fe, pero tiene que coincidir el domicilio de la licencia de conducir (vigente) con el del DNI. Se entrega el permiso en el momento. Llevar 2 fotos carnet actuales 4x4 de frente, DNI, licencia (original y fotocopia de frente/dorso). Alcanza con sacar “categoría B1”, dura un año. Realizar entre agosto y octubre del 2027 
+
+
+Se puede ir directamente (en general es por orden de llegada, sin turno previo, aunque conviene confirmar horario) a la sede central del ACA en la ciudad de Santa Fe: Dirección: Rivadavia 3002 (esquina Junín). Costo aproximado $30 USD
+
+
+A CHEQUEAR ESTA INFORMACIÓN: Japón exige una traducción oficial emitida por la Japan Automobile Federation (JAF) únicamente a los ciudadanos de ciertos países específicos que no firmaron la Convención de Ginebra de 1949 (como Alemania, Francia, Bélgica o Taiwán). Argentina sí es firmante de la Convención de Ginebra, por lo que el librito del ACA tiene validez oficial directa en todo Japón sin necesidad de sellos consulares ni traducciones extra.
+* SEGURO MÉDICO: buscar un plan estándar con una cobertura médica adecuada para Japón (piso de USD 100.000 a USD 150.000 en gastos médicos, ya que la atención de salud  para extranjeros es muy costosa). El trámite se hace Online (ver que empresa conviene, Assist Card, Universal Assistance, Pax, etc.). Costo aproximado, entre USD 50 y USD 120 por persona en total por todo el viaje (hay que aclarar la fecha de salida y llegada al destino al momento de sacarlo, se recibe la póliza en PDF al mail, se imprime para tener en la carpeta de migraciones). Sacar en febrero de 2028.
+
+
+
+
+* ESIM: preferentemente sacar plan de 20 GB, el costo aproximado es de $25 USD, debería alcanzar usando el Wifi del hotel. En caso de querer el plan ilimitado, el costo es de aprox $70 USD para c/celular. Se compra por la web del proveedor, te mandan un QR a un mail y se instala unos días antes de viajar escaneando ese código. Al aterrizar en Japón se cambian los ajustes de red, se activa la eSIM y se desactiva el roaming de la línea Arg. Inmediatamente se conecta a internet. Sacar una semana antes de viajar.
+
+
+**Verificar previamente si los celulares son compatibles con tecnología eSIM y que esten “liberados” para usar con cualquier compañia (las más recomendadas y estables son Airalo, Ubigi o Saily, que operan con las redes locales japonesas como SoftBank o KDDI).
+
+
+
+
+* MIGRACIONES: al llegar, en Japón son estrictos con los papeles. Llevar impreso en una carpeta física: pasaportes, pasajes de vuelta, reservas de todos los hoteles y el comprobante del seguro médico por si los piden en el control.
+
+
+________________
+
+
+Itinerario
+Plan de viaje: cada día tiene alojamiento, paradas y espacio para notas.
+
+
+  
+
+________________
+
+
+Día 1 — Llegada a Aeropuerto (definir si Haneda o Narita según qué pasajes se consigan)
+
+
+TRASLADO: a definir
+COSTO: a definir
+Shibuya
+Alojamiento: a definir (check-in / base)
+
+
+Ubicación: 
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	1
+	Hotel Clio Higashiguchi-ten
+	Base / check-in
+	
+
+	
+
+	Desde aeropuerto (NRT/HND) → Ikebukuro
+	stop
+	
+
+	35.732595,139.716185
+	Notas del día
+Descansar; según hora de arribo, cena ligera en Ikebukuro (este/oeste de la estación).
+
+
+Activar IC (Suica/PASMO) el día 1 si aún no la tienen.
+
+
+________________
+
+
+Día 2 — Oeste (hub Ikebukuro)
+Alojamiento: Ikebukuro
+
+
+Hub logístico: salida y retorno en Ikebukuro (IC: Suica/PASMO)
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	—
+	Ikebukuro (salida)
+	
+
+	—
+	—
+	
+
+	hub_out
+	
+
+	stay
+	2
+	Harajuku
+	Zona
+	Yamanote / Fukutoshin ~15–20 min
+	30–45 min
+	Mañana
+	stop
+	
+
+	35.671048,139.709160
+	3
+	Calle Takeshita
+	Calle peatonal
+	A pie ~5 min
+	45–75 min
+	
+
+	stop
+	
+
+	35.671263,139.704676
+	4
+	Estación de Ikebukuro
+	Zona
+	Yamanote 1 parada / a pie vía Meiji ~10 min
+	90–120 min
+	
+
+	stop
+	
+
+	35.729503,139.710900
+	5
+	Kabukicho
+	Barrio nocturno
+	A pie / metro corto en Shinjuku
+	45–90 min
+	
+
+	stop
+	
+
+	
+
+	6
+	Golden Gai
+	Bares temáticos
+	A pie desde Kabukicho ~5 min
+	60–120 min
+	Último tren a Ikebukuro
+	stop
+	
+
+	
+
+	—
+	Ikebukuro (retorno)
+	
+
+	Yamanote / metro ~15–20 min
+	—
+	
+
+	hub_back
+	
+
+	stay
+	Notas del día
+Sin teamLab en este día (Planets va al día 6). Recorrido base; detalle de atracciones por completar.
+
+
+________________
+
+
+Día 3 — Este de Tokyo (hub Ikebukuro)
+Base: Ikebukuro
+
+
+Alojamiento: Ikebukuro
+
+
+Hub logístico: salida y retorno en Ikebukuro (IC: Suica/PASMO)
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	1
+	Ueno
+	Zona / estación hub del cluster A
+	JR Yamanote ~8–12 min desde Ikebukuro
+	15 min
+	Mañana
+	stop
+	
+
+	
+
+	2
+	Parque (cerezos)
+	Ueno Park
+	A pie desde Ueno Station ~5 min
+	30–45 min
+	Mejor luz temprano; temporada sakura
+	stop
+	
+
+	
+
+	3
+	Estanque Shinobazu
+	Sur del parque
+	A pie dentro del parque ~5 min
+	20–30 min
+	Cierra el cluster A a pie
+	stop
+	
+
+	
+
+	4
+	Asakusa
+	Zona
+	Metro Ginza ~5 min (o a pie ~25 min)
+	20 min
+	Misma visita que Sensō-ji
+	stop
+	
+
+	
+
+	5
+	Sensō-ji
+	Templo + Nakamise
+	A pie (Nakamise) ~5 min
+	45–60 min
+	Incluye visita a Asakusa
+	stop
+	
+
+	
+
+	6
+	Tokyo Skytree
+	Mirador / Solamachi
+	Tobu ~3 min o caminata ~15–20 min
+	45–90 min
+	Ticket mirador si suben
+	stop
+	
+
+	
+
+	7
+	Café temático Kirby
+	Tokyo Solamachi (Skytree Town)
+	A pie en Solamachi ~5 min
+	45–75 min
+	Reserva anticipada (suele agotarse)
+	stop
+	
+
+	
+
+	8
+	Tokyo Station
+	Dragon Ball Store / Character Street
+	Metro/JR desde Skytree ~15–25 min
+	30–45 min
+	Última parada antes del retorno
+	stop
+	
+
+	
+
+	Notas del día
+No invertir Skytree ↔ Tokyo Station al final: desde Solamachi conviene bajar a Tokyo St. y cerrar con Yamanote a Ikebukuro.
+
+
+Sensō-ji y Asakusa = una sola visita; no hace falta "segunda llegada" a Asakusa.
+
+
+Kirby y Skytree = mismo complejo; si no hay reserva Kirby, el bloque C sigue siendo válido (Solamachi / mirador / compras).
+
+
+Si el día va justo: recortar mirador Skytree o Character Street; no partir el cluster Ueno.
+
+
+IC card en todo el trayecto; efectivo para templo/souvenirs en Nakamise.
+
+
+________________
+
+
+Día 4 — Otaku axis (Akihabara → Ikebukuro)
+Base: Ikebukuro
+
+
+Alojamiento: Ikebukuro
+
+
+Hub logístico: salida y retorno en Ikebukuro (IC: Suica/PASMO)
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	—
+	Ikebukuro (salida)
+	
+
+	—
+	—
+	
+
+	hub_out
+	
+
+	stay
+	2
+	Akihabara
+	
+
+	JR Yamanote ~15–20 min
+	~5–6 h (bloque A)
+	Incluye Yodobashi, Radio Kaikan, Animate/Mandarake, Gachapon, arcades, Don Quijote
+	stop
+	
+
+	
+
+	3
+	Ikebukuro (zona)
+	
+
+	JR Yamanote ~15–20 min
+	~3–4 h (bloque B + cena)
+	Incluye Animate flagship, Sunshine City, Pokémon Center Mega Tokyo, cena
+	stop
+	
+
+	
+
+	Notas del día
+Regla de bolsas: compras voluminosas en Akihabara → volver a dejar en hotel → después Sunshine/Pokémon/Animate (o al revés solo si van ligeros).
+
+
+Pokémon Center y Animate Ikebukuro pueden tener cola; llegar al bloque B antes de las 18:00 si es fin de semana.
+
+
+No hace falta metro complejo: solo Yamanote ida y vuelta.
+
+
+Día complementario del día 3 (este cultural) vs día 4 (otaku/compras): ritmo más "mall + tiendas", menos templos.
+
+
+________________
+
+
+Día 5 — Warner Bros. Studio Tour Tokyo (Harry Potter)
+Alojamiento: Ikebukuro
+
+
+Hub logístico: salida y retorno en Ikebukuro (IC: Suica/PASMO)
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	—
+	Ikebukuro (salida)
+	
+
+	Salir ~45–60 min antes del slot
+	—
+	
+
+	hub_out
+	
+
+	stay
+	2
+	Toshimaen / WB Studio Tour
+	The Making of Harry Potter
+	Seibu Ikebukuro Line ~17 min
+	3–6 h in-tour (+ ~30 min check-in)
+	Reserva obligatoria — slot mañana ideal
+	stop
+	
+
+	
+
+	—
+	Ikebukuro (retorno)
+	
+
+	Seibu ~17 min
+	—
+	
+
+	hub_back
+	
+
+	stay
+	4
+	Ikebukuro flex (opt. A/B/C)
+	Cena / compras pendientes / Animate o Pokémon Center (si faltó día 4) / paseo East Exit
+	A pie / cerca hotel
+	1–2,5 h
+	No otra atracción grande
+	stop
+	
+
+	
+
+	Notas del día
+Oficial: ubicación / acceso — Seibu desde Ikebukuro es la vía más simple (sin pasar por Shinjuku).
+
+
+Lockers en el venue si llevan bolsas grandes del día 4.
+
+
+No rellenar la mañana pre-tour con otra zona lejana: el riesgo es llegar tarde al slot y perder la entrada.
+
+
+En el plan global: marcar este día como “medio día fuerte + noche hub”, no como “día bloqueado tipo parque”.
+
+
+Slot mañana ideal (10:00-11:30). Combinar solo con Ikebukuro post-tour (cena/flex).
+
+
+________________
+
+
+Día 6 — Odaiba + teamLab Planets (Toyosu)
+Alojamiento: Ikebukuro
+
+
+Hub logístico: salida y retorno en Ikebukuro (IC: Suica/PASMO)
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	—
+	Ikebukuro (salida)
+	
+
+	—
+	~09:00–09:30
+	
+
+	hub_out
+	
+
+	stay
+	2
+	Odaiba
+	Zona bahía
+	Shimbashi/Toyosu + Yurikamome ~45–60 min
+	15 min
+	Mañana
+	stop
+	
+
+	
+
+	3
+	Gundam (DiverCity)
+	Unicorn Gundam + show
+	A pie ~5–10 min
+	20–40 min
+	Horario show; check post-ago 2026
+	stop
+	
+
+	
+
+	4
+	Joypolis (Decks)
+	Sega / rides
+	A pie / Yurikamome ~5–10 min
+	~2 h (selectivo)
+	Ticket; ritmo corto
+	stop
+	
+
+	
+
+	5
+	teamLab Planets (Toyosu)
+	Experiencia water/barefoot
+	Yurikamome → Shin-Toyosu ~10–15 min
+	90–150 min
+	Reserva/slot tarde (ej. 15:30–17:30)
+	stop
+	
+
+	
+
+	—
+	Ikebukuro (retorno + cena depto)
+	Cena en departamento
+	Yurakucho/metro desde Toyosu ~35–50 min
+	Cena en casa
+	
+
+	hub_back
+	
+
+	stay
+	Notas del día
+Planets: barefoot / agua — calcetines de cambio; pantalones que se puedan arremangar.
+
+
+No meter Miraikan el mismo día: Joypolis + Planets ya son dos indoor fuertes.
+
+
+Slot Planets con margen tras Joypolis (colas + traslado a Toyosu).
+
+
+Salir de Toyosu con tiempo para cenar en el depto.
+
+
+Gundam show horario: ~11/13/15/17 · gratuito · retirada fin ago 2026.
+
+
+________________
+
+
+Día 7 — Excursión: Yokohama (hub Ikebukuro)
+Alojamiento: Ikebukuro (ida y vuelta)
+
+
+Hub logístico: salida y retorno en Ikebukuro (IC: Suica/PASMO)
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	—
+	Ikebukuro (salida)
+	
+
+	—
+	~08:15–08:30
+	
+
+	hub_out
+	
+
+	stay
+	2
+	Yokohama Station
+	
+
+	JR Shonan-Shinjuku ~30–40 min
+	10 min transferencia
+	
+
+	stop
+	
+
+	
+
+	3
+	Jardín Sankeien
+	
+
+	Motomachi-Chukagai + bus ~20 min
+	60–90 min
+	
+
+	stop
+	
+
+	
+
+	4
+	Minato Mirai (zona)
+	
+
+	Bus/metro al waterfront ~25–35 min
+	30–45 min paseo
+	
+
+	stop
+	
+
+	
+
+	5
+	Cup Noodles Museum
+	
+
+	A pie en Minato Mirai
+	60–90 min
+	
+
+	stop
+	
+
+	
+
+	6
+	Cosmo World (noria) (opt.)
+	
+
+	A pie
+	30–60 min
+	
+
+	stop
+	
+
+	
+
+	7
+	Chinatown / Red Brick (snack)
+	
+
+	A pie ~10–15 min
+	45–75 min
+	
+
+	stop
+	
+
+	
+
+	—
+	Ikebukuro (retorno día)
+	
+
+	Toyoko/JR ~35–45 min
+	—
+	
+
+	hub_back
+	
+
+	stay
+	9
+	Daikoku PA (noche, si hay tour/coche)
+	
+
+	Tour desde Tokyo / zona Ikebukuro
+	60–120 min
+	
+
+	stop
+	
+
+	
+
+	Notas del día
+Salida ~08:15 para abrir Sankeien sin prisa.
+
+
+Cosmo World: verificar día de cierre (a veces un día fijo semanal).
+
+
+Daikoku en taxi (plan actual): ida funciona; el problema es la vuelta (no hay transporte público y conseguir taxi ahí de noche es lotería). Negociar con el taxista espera + ida y vuelta (~¥15.000–25.000 total desde Yokohama/Tokyo). Alternativa sin estrés: tour nocturno de car culture desde Tokyo (suelen incluir Daikoku + Tatsumi PA).
+
+
+Daikoku: ir viernes o sábado a la noche = máximo movimiento de autos JDM.
+
+
+Si no se confirma taxi/tour, cerrar en Minato Mirai — no dejar hueco vacío.
+
+
+IC en JR + bus; efectivo de respaldo en bus.
+
+
+________________
+
+
+Día 8 — Libre / flex
+Alojamiento: Ikebukuro (última noche en Tokyo)
+
+
+Hub logístico: Ikebukuro
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	1
+	Libre / flex
+	
+
+	
+
+	
+
+	
+
+	stop
+	
+
+	
+
+	Notas del día
+Bloque AM: Tokyo Supercars (reservar, llevar IDP+pasaporte). Bloque PM: pendientes (compras, Kirby, Character Street, fotos). Tarde: despachar takkyubin → ryokan Hakone (crítico para día 9). Noche: packing + descanso. Estrategia: día 8 = supercar europeo urbano; día 10 = JDM touge en Hakone (Fun2Drive).
+
+
+________________
+
+
+Día 9 — Kamakura + Enoshima (en tránsito a Hakone)
+Base: Ikebukuro → Kamakura → Enoshima → Hakone (ryokan)
+
+
+Alojamiento: Hakone (ryokan privado / tatuajes OK) — check-in a la noche
+
+
+Hub logístico: Ikebukuro
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	1
+	Ikebukuro (check-out)
+	Salida ~07:30–08:00
+	—
+	—
+	
+
+	stop
+	
+
+	
+
+	2
+	Kamakura
+	Zona templos + Komachi-dōri
+	JR Shonan-Shinjuku (directo) ~60 min
+	15 min
+	Mañana; JR directo desde Ikebukuro
+	stop
+	
+
+	
+
+	3
+	Gran Buda (Kōtoku-in)
+	Icono del día
+	Enoden a Hase ~5 min + a pie ~7 min
+	30–45 min
+	Entrada en efectivo
+	stop
+	
+
+	
+
+	4
+	Hase-dera (opt.)
+	Templo con vista al mar
+	A pie ~5 min
+	30–45 min
+	Recortable si van justos
+	stop
+	
+
+	
+
+	5
+	Komachi-dōri + almuerzo
+	
+
+	Enoden de vuelta a Kamakura
+	60–90 min
+	
+
+	stop
+	
+
+	
+
+	6
+	Enoshima (isla)
+	Isla: santuario, cuevas, faro
+	Enoden Kamakura → Enoshima ~25 min + puente a pie
+	90–150 min
+	Atardecer ideal; escaleras (hay escalators de pago)
+	stop
+	
+
+	
+
+	7
+	Hakone (check-in)
+	Ryokan: cena kaiseki + onsen
+	Odakyu Katase-Enoshima → Odawara ~60 min → Hakone-Yumoto ~15 min
+	Cena en ryokan
+	Avisar hora de llegada (cena con horario)
+	stop
+	
+
+	
+
+	Notas del día
+Cena en ryokan = horario fijo (~18:00–19:00): salir de Enoshima como muy tarde ~16:30–17:00.
+
+
+Enoden va lleno en temporada; con IC alcanza (no hace falta pase).
+
+
+Onsen esa misma noche: es la única noche de ryokan del viaje — aprovechar.
+
+
+Si el día viene pesado: cortar Hase-dera o las cuevas de Enoshima, no el atardecer ni la cena.
+
+
+Takkyubin despachado el día 8 desde Ikebukuro al ryokan (alternativa: lockers en Odawara).
+
+
+________________
+
+
+Día 10 — Fun2Drive JDM + loop comprimido (→ Nagoya a la noche)
+Base: Ryokan Hakone → Fun2Drive → Owakudani → Lago Ashi → Odawara → Nagoya
+
+
+Alojamiento: Nagoya (Meieki) — check-in a la noche
+
+
+Hub logístico: Odawara
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	1
+	Ryokan (check-out, valijas hold)
+	
+
+	Salida ~08:15
+	—
+	
+
+	stop
+	
+
+	
+
+	2
+	Fun2Drive (Sengokuhara) 🏎️
+	Swift Hakone Drive: Hakone Skyline + Ashinoko Skyline (MF Ghost) con Fuji y lago Ashi; flota JDM (GT-R, Fairlady Z, NSX, Supra, AE86, RX-7, Evo, WRX) y opciones extranjeras
+	Bus Tozan desde Yumoto ~30 min
+	~2,5 h (briefing + Swift Drive)
+	Reserva obligatoria y anticipada; muchos JDM son manual (MT) con volante derecho: si no hay comodidad con MT mano izquierda, pedir unidad AT
+	stop
+	
+
+	
+
+	3
+	Almuerzo Sengokuhara / Gora
+	
+
+	Bus ~10–15 min
+	45 min
+	
+
+	stop
+	
+
+	
+
+	4
+	Owakudani (huevos negros)
+	
+
+	Cable car + ropeway desde Gora ~30 min
+	45 min
+	
+
+	stop
+	
+
+	
+
+	5
+	Lago Ashi → Moto-Hakone (torii)
+	
+
+	Ropeway a Togendai + barco pirata ~45 min
+	30 min
+	
+
+	stop
+	
+
+	
+
+	6
+	Odawara (retirar valijas Yumoto)
+	
+
+	Bus ~40–50 min
+	—
+	
+
+	stop
+	
+
+	
+
+	7
+	Nagoya (check-in Meieki)
+	Cena en Meieki (Esca sótano: miso katsu, hitsumabushi)
+	Shinkansen Odawara → Nagoya ~1 h 10
+	Cena zona estación
+	Reservar asiento con equipaje grande; Hikari para (Nozomi no siempre)
+	stop
+	
+
+	
+
+	Notas del día
+Reservar Fun2Drive YA — slot mañana (~09:00–09:30). Sin reserva confirmada, el día vuelve al loop clásico.
+
+
+El drive ya cubre las vistas de Ashi/Fuji desde Ashinoko Skyline → si el día viene justo, recortar el barco pirata, no Owakudani.
+
+
+Día largo (~9 h): llegada a Nagoya ~19:30–20:00 → cena simple en Meieki (Esca sótano: miso katsu, hitsumabushi).
+
+
+Hakone Free Pass no rinde para un día lineal con salida en shinkansen — evaluar tickets sueltos.
+
+
+Owakudani cierra ropeway por gases volcánicos algunos días: verificar estado esa mañana; plan B = bus directo a Togendai.
+
+
+Shinkansen Odawara→Nagoya: Hikari para (Nozomi no siempre); reservar asiento con equipaje grande.
+
+
+Llevar IDP + registro + pasaporte a Fun2Drive (ver requisito transversal al inicio del plan).
+
+
+Valijas en el ryokan (luggage hold) → retirar antes de bajar a Odawara (o takkyubin ryokan → hotel Nagoya/Kyoto).
+
+
+________________
+
+
+Día 11 — Nagoya
+Alojamiento: Nagoya (Meieki) — 2ª noche
+
+
+Hub logístico: Nagoya Station
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	—
+	Meieki (salida)
+	
+
+	—
+	~09:00
+	
+
+	hub_out
+	
+
+	stay
+	2
+	Castillo de Nagoya + Honmaru
+	
+
+	Metro Meijō ~15 min
+	90–120 min
+	
+
+	stop
+	
+
+	
+
+	3
+	Atsuta Jingū (opt.)
+	
+
+	Metro/Meitetsu ~20 min
+	45–60 min
+	
+
+	stop
+	
+
+	
+
+	4
+	Ōsu (barrio + shopping arcade)
+	
+
+	Metro ~10 min
+	90–120 min
+	
+
+	stop
+	
+
+	
+
+	5
+	Sakae (Oasis 21 / TV Tower)
+	
+
+	Metro 1 parada / a pie ~15 min
+	60–90 min
+	
+
+	stop
+	
+
+	
+
+	—
+	Meieki (retorno)
+	
+
+	Metro ~10 min
+	Cena
+	
+
+	hub_back
+	
+
+	stay
+	Notas del día
+Ghibli Park: si lo quieren, decidir ya — entradas por sorteo/venta anticipada con meses de antelación.
+
+
+Ōsu es el mejor bloque tarde: comida callejera + tiendas.
+
+
+Día tranquilo a propósito: colchón de descanso entre Hakone y el tramo Kansai.
+
+
+________________
+
+
+Día 12 — Nagoya → Nara → Kyoto
+Alojamiento: Kyoto (Kyoto Station) — check-in / primera de 4 noches
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	1
+	Nagoya (check-out)
+	
+
+	Salida ~08:00–08:30
+	—
+	
+
+	stop
+	
+
+	
+
+	2
+	Kyoto Station — dejar valijas
+	
+
+	Shinkansen ~35 min
+	30 min
+	
+
+	stop
+	
+
+	
+
+	3
+	Nara (Kintetsu-Nara)
+	
+
+	Kintetsu limited express ~35 min
+	10 min
+	
+
+	stop
+	
+
+	
+
+	4
+	Parque de Nara (ciervos)
+	
+
+	A pie ~10 min
+	45–60 min
+	
+
+	stop
+	
+
+	
+
+	5
+	Tōdai-ji (Gran Buda)
+	
+
+	A pie por el parque
+	60–75 min
+	
+
+	stop
+	
+
+	
+
+	6
+	Kasuga Taisha (linternas)
+	
+
+	A pie ~15–20 min
+	45–60 min
+	
+
+	stop
+	
+
+	
+
+	7
+	Naramachi / Higashimuki + merienda
+	
+
+	A pie de vuelta
+	45–60 min
+	
+
+	stop
+	
+
+	
+
+	—
+	Kyoto (retorno + check-in)
+	
+
+	Kintetsu ~35–45 min
+	Cena zona estación
+	
+
+	hub_back
+	
+
+	stay
+	Notas del día
+Kintetsu > JR para Kyoto↔Nara: la estación Kintetsu-Nara queda pegada al parque (JR Nara ~20 min a pie).
+
+
+Galletas para ciervos (¥200): los ciervos hacen reverencia… y también muerden bolsas — guardar papeles.
+
+
+Tōdai-ji: última entrada ~17:00–17:30 según temporada, por eso valijas rápido y salir.
+
+
+Si llegan tarde a Nagoya check-out: recortar Naramachi, no Tōdai-ji.
+
+
+________________
+
+
+Día 13 — Este (Higashiyama)
+Alojamiento: Kyoto (Kyoto Station)
+
+
+Hub logístico: salida y retorno en Kyoto Station (JR / metro / bus)
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	—
+	Kyoto Station (salida)
+	
+
+	Salida ~07:00
+	—
+	
+
+	hub_out
+	
+
+	stay
+	2
+	Fushimi Inari
+	Templo / miles de torii
+	JR Nara line ~5 min (Inari St.)
+	90–120 min
+	
+
+	stop
+	
+
+	
+
+	3
+	Kiyomizu-dera
+	Templo + terraza
+	Bus / Keihan + subida Higashiyama ~25–40 min
+	60–90 min
+	Ticket entrada; calzado cómodo
+	stop
+	
+
+	
+
+	4
+	Sannenzaka / Ninenzaka
+	Calle histórica / fotos
+	A pie desde Kiyomizu ~5 min
+	45–60 min
+	
+
+	stop
+	
+
+	
+
+	5
+	Gion (yasaka / calles)
+	Barrio geisha / calles
+	A pie / bus corto ~15–25 min
+	60–90 min
+	Tarde–noche; respetar zonas privadas
+	stop
+	
+
+	
+
+	—
+	Kyoto Station (retorno)
+	
+
+	Bus / metro ~20–30 min
+	Cena zona St.
+	
+
+	hub_back
+	
+
+	stay
+	Notas del día
+Prioridad absoluta: Inari temprano; si se atrasa, recortar Gion, no Inari.
+
+
+Preferir JR a Inari y caminar en Higashiyama; el bus 100/101 satura.
+
+
+Efectivo útil en templos y puestos de la calle.
+
+
+________________
+
+
+Día 14 — Oeste (Arashiyama)
+Alojamiento: Kyoto (Kyoto Station)
+
+
+Hub logístico: salida y retorno en Kyoto Station (JR Sagano / San-in line)
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	—
+	Kyoto Station (salida)
+	
+
+	Salida ~07:00
+	—
+	
+
+	hub_out
+	
+
+	stay
+	2
+	Bosque de bambú (Arashiyama)
+	Camino fotogénico
+	JR Sagano ~15–20 min (Saga-Arashiyama)
+	45–60 min
+	
+
+	stop
+	
+
+	
+
+	3
+	Tenryū-ji
+	Templo + jardín
+	A pie ~5–10 min
+	45–75 min
+	Patrimonio UNESCO
+	stop
+	
+
+	
+
+	4
+	Iwatayama (Monkey Park)
+	Mirador + monos
+	A pie + subida ~15–20 min
+	60–90 min
+	Subida empinada; agua
+	stop
+	
+
+	
+
+	5
+	Río Katsura / Togetsukyō
+	Puente Togetsukyō
+	Bajada a pie ~10–15 min
+	30–45 min
+	
+
+	stop
+	
+
+	
+
+	—
+	Kyoto Station (retorno)
+	
+
+	JR Sagano ~15–20 min
+	—
+	
+
+	hub_back
+	
+
+	stay
+	Notas del día
+JR Sagano desde Kyoto Station es directo; evitar bus a Arashiyama en hora pico.
+
+
+Si el día va justo: recortar Monkey Park, no el bambú ni Tenryū-ji.
+
+
+Merienda / matcha en la zona del río antes del retorno.
+
+
+________________
+
+
+Día 15 — Norte + centro
+Alojamiento: Kyoto (Kyoto Station)
+
+
+Hub logístico: salida y retorno en Kyoto Station (bus / metro Karasuma)
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	—
+	Kyoto Station (salida)
+	
+
+	Salida ~08:00
+	—
+	
+
+	hub_out
+	
+
+	stay
+	2
+	Kinkaku-ji (Pabellón Dorado)
+	
+
+	Bus ~35–45 min
+	45–60 min
+	Ticket; fotos desde el estanque
+	stop
+	
+
+	
+
+	3
+	Ryōan-ji
+	Jardín zen de piedras
+	Bus corto ~10–15 min
+	45–60 min
+	Misma zona norte; combinar en un tramo
+	stop
+	
+
+	
+
+	4
+	Nishiki Market
+	Mercado techado
+	Bus / metro a Shijō ~30–40 min
+	60–90 min
+	Picoteo / compras comida
+	stop
+	
+
+	
+
+	5
+	Pontocho
+	Calle peatonal nocturna
+	A pie desde Nishiki ~5–10 min
+	60–90 min
+	Cena; última del día
+	stop
+	
+
+	
+
+	—
+	Kyoto Station (retorno)
+	
+
+	Metro Karasuma ~10–15 min
+	—
+	
+
+	hub_back
+	
+
+	stay
+	Notas del día
+Norte (Kinkaku + Ryōan) en un solo bloque AM; no volver al norte después de Nishiki.
+
+
+Si hay cola larga en Kinkaku-ji: entrar y seguir — no invertir el orden con Ryōan-ji si ya están en la zona.
+
+
+Pontocho de noche cierra el día cerca del centro; metro fácil a Kyoto Station.
+
+
+________________
+
+
+Día 16 — Flex Kyoto → Osaka (Namba)
+Alojamiento: check-out Kyoto → check-in Osaka (Namba) — primera de 4 noches en Namba
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	1
+	Kyoto Station (check-out)
+	
+
+	Despachar valijas / hold ~08:00–09:00
+	30–45 min
+	Takkyubin a Namba o dejar valijas en hotel Kyoto
+	stop
+	
+
+	
+
+	2
+	Pendientes Kyoto / compras
+	Lo que falte + compras
+	Según lo que falte (centro / estación)
+	120–180 min
+	Día flexible a propósito
+	stop
+	
+
+	
+
+	3
+	Traslado a Namba
+	Kyoto → Namba
+	JR / Keihan / Hankyu ~30–45 min
+	45 min
+	IC o ticket; sin valijas grandes si takkyubin
+	stop
+	
+
+	
+
+	4
+	Check-in Namba + zona
+	Hotel base Osaka
+	A pie desde estación
+	60–90 min
+	Noche ya en Namba → libera el día 17
+	stop
+	
+
+	
+
+	5
+	Namba (noche)
+	
+
+	Base Osaka
+	Cena Dōtonbori
+	
+
+	stop
+	
+
+	
+
+	Notas del día
+Takkyubin a Namba a la mañana permite día completo sin cargar nada; a la noche solo mochila.
+
+
+Dormir ya en Namba libera la mañana del 17 completa en Osaka.
+
+
+No forzar atracciones pesadas: guardar piernas para USJ (día 18).
+
+
+Logística de equipaje: takkyubin a Namba a la mañana ★ · o dejar valijas en hotel Kyoto y retirar antes del tren · noche solo con mochila.
+
+
+________________
+
+
+Día 17 — Ciudad clásica Osaka
+Alojamiento: Osaka (Namba)
+
+
+Hub logístico: salida y retorno en Namba (metro / a pie)
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	—
+	Namba (salida)
+	
+
+	—
+	—
+	
+
+	hub_out
+	
+
+	stay
+	2
+	Castillo de Osaka
+	
+
+	Metro ~20–25 min
+	90–120 min
+	
+
+	stop
+	
+
+	
+
+	3
+	Kuromon Market
+	
+
+	Metro / a pie hacia Namba ~20–30 min
+	45–75 min
+	
+
+	stop
+	
+
+	
+
+	4
+	Shinsaibashi
+	
+
+	A pie ~5–10 min
+	60–90 min
+	
+
+	stop
+	
+
+	
+
+	5
+	Dōtonbori
+	
+
+	A pie desde Shinsaibashi ~5 min
+	90–120 min
+	
+
+	stop
+	
+
+	
+
+	—
+	Namba (retorno)
+	
+
+	A pie ~5 min
+	—
+	
+
+	hub_back
+	
+
+	stay
+	Notas del día
+Cierre en Dōtonbori aprovecha que la base está a minutos a pie.
+
+
+Si el castillo satura: recortar torre interior, no el parque exterior.
+
+
+Guardar energía: mañana día 18 = USJ temprano.
+
+
+________________
+
+
+Día 18 — USJ (Universal Studios Japan)
+Alojamiento: Osaka (Namba)
+
+
+Hub logístico: Namba → USJ (JR / metro) · día bloqueado en el parque
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	—
+	Namba (salida)
+	
+
+	Salida ~07:00–07:30
+	—
+	
+
+	hub_out
+	
+
+	stay
+	2
+	Universal Studios Japan
+	
+
+	JR / metro ~20–30 min
+	día completo
+	
+
+	stop
+	
+
+	
+
+	—
+	Namba (retorno)
+	
+
+	JR / metro ~20–30 min
+	Cena liviana
+	
+
+	hub_back
+	
+
+	stay
+	Notas del día
+USJ reubicado al día 18 (antes figuraba día 16): día del medio = margen si llueve (mover a 17 o 19).
+
+
+Reservar Express Pass con anticipación; sin pass el día se come en colas.
+
+
+Nintendo World: timed ticket en la app al entrar — no depender de “pasar después”.
+
+
+Cena liviana en Namba; piernas cansadas.
+
+
+________________
+
+
+Día 19 — Flex / pendientes Osaka
+Base: Osaka (Namba)
+
+
+Alojamiento: Osaka (Namba)
+
+
+Hub logístico: salida y retorno en Namba (metro)
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	—
+	Namba (salida)
+	
+
+	Mañana tranquila
+	—
+	
+
+	hub_out
+	
+
+	stay
+	2
+	Shinsekai + Tsūtenkaku
+	Barrio retro + torre
+	Metro ~15–20 min
+	90–120 min
+	Kushikatsu / fotos
+	stop
+	
+
+	
+
+	3
+	Umeda Sky Building (opt.)
+	Mirador
+	Metro ~20–25 min
+	60–90 min
+	Opt. si hay ganas y clima
+	stop
+	
+
+	
+
+	4
+	Compras finales / packing
+	Souvenirs / droguerías
+	Vuelta a Namba
+	90–150 min
+	No dejar packing para la mañana del 20
+	stop
+	
+
+	
+
+	—
+	Namba (retorno)
+	
+
+	Packing valijas a la noche
+	—
+	
+
+	hub_back
+	
+
+	stay
+	Notas del día
+Día liviano a propósito: piernas + valijas antes del vuelo.
+
+
+Packing completo a la noche; el día 20 es solo traslado a KIX.
+
+
+Si llovió en USJ y lo movieron: este día absorbe el parque (y se comprime Shinsekai).
+
+
+________________
+
+
+Día 20 — Salida KIX
+Base: — (check-out Namba)
+
+
+Alojamiento: — (check-out Namba)
+
+
+Hub logístico: Namba → Kansai Airport (KIX) vía Nankai (~40 min)
+Paradas
+#
+	Parada
+	Detalle
+	Cómo llegar
+	Est.
+	Notas
+	Kind
+	Hecho
+	Ubicación
+	1
+	Namba (check-out)
+	Check-out hotel
+	Salida según hora de vuelo − 3+ h
+	—
+	Contar margen desde puerta del hotel
+	stop
+	
+
+	
+
+	2
+	Nankai a KIX
+	rapi:t o Airport Express
+	rapi:t o Airport Express ~35–45 min
+	45 min
+	
+
+	stop
+	
+
+	
+
+	3
+	Kansai Airport (KIX)
+	Terminal internacional
+	Check-in + seguridad + emigración
+	120–180 min
+	3+ h de margen para vuelo internacional
+	stop
+	
+
+	
+
+	—
+	Vuelo retorno Argentina
+	
+
+	—
+	—
+	Confirmar terminal / mostrador
+	hub_back
+	
+
+	stay
+	Notas del día
+Rapi:t desde Namba: conviene reservar asiento; con IC también sale el Airport Express común (un poco más lento).
+
+
+No cortar el margen: check-in internacional + seguridad en KIX suele comer tiempo.
+
+
+Si el vuelo es muy temprano: valuables en carry-on; takkyubin no aplica el mismo día.
+
+
+________________

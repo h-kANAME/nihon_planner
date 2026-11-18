@@ -9,6 +9,7 @@
 #   ALLOWED_EMAILS
 #   SESSION_SECRET (≥32 chars)
 #   GEMINI_API_KEY (y opcional DEEPSEEK_API_KEY / AI_*)
+#   GOOGLE_DOC_ITINERARY_ID (Doc compartido anyone-with-link)
 # Opcionales: VITE_MAP_STYLE_LIGHT, VITE_MAP_STYLE_DARK, LOG_LEVEL
 
 services:
@@ -46,6 +47,7 @@ services:
       AI_MAX_CONTINUATIONS: ${AI_MAX_CONTINUATIONS:-3}
       COMPACT_THRESHOLD: ${COMPACT_THRESHOLD:-40}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      GOOGLE_DOC_ITINERARY_ID: ${GOOGLE_DOC_ITINERARY_ID:-1NaDgQ66jdQntV6Ubju5B_1qw7RgrZy3Dfrjp8IHryq8}
     expose:
       - "8787"
     volumes:
