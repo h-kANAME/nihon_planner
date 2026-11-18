@@ -9,9 +9,12 @@ import PlanPreview from "./components/PlanPreview.jsx";
 import { useIsDesktop } from "./lib/viewport";
 import {
   dayHasPendingLocations,
+  formatGlobalLocationProgress,
   isLocationResolved,
   locateCtaLabel,
   locationProgress,
+  locationProgressPercent,
+  locationProgressTone,
   mapsDirectionsForStop,
   mapsSearch,
   mapsSearchForStop,
@@ -398,7 +401,7 @@ export default function App() {
         </aside>
       )}
 
-      <div style={S.content} className={isDesktop ? "max-w-[var(--content-max)] mx-auto" : undefined}>
+      <div style={S.content} className={isDesktop ? "w-full" : undefined}>
         <header style={S.header}>
           <div>
             <div className="np-eyebrow">日本 · 20 días · dos viajeros</div>
@@ -494,6 +497,7 @@ function Resumen({
   const [previewAnchor, setPreviewAnchor] = useState(null);
   const [gdocBusy, setGdocBusy] = useState(false);
   const [gdocMsg, setGdocMsg] = useState(null);
+  const [pendingOpen, setPendingOpen] = useState(false);
   /** @type {[{ target: 'stop'|'stay', dayId: string, stopId?: string }|null, Function]} */
   const [locationPicker, setLocationPicker] = useState(null);
 
@@ -542,13 +546,34 @@ function Resumen({
   const locations = itinerary.locations || { total: 0, resolved: 0, pending: 0 };
   const est = dash?.estimatedVsLoaded || { loadedUSD: 0, pendingLogisticsUSD: 0 };
   const pendingItems = dash?.pendingItems || [];
+  const hasPending = pendingItems.length > 0;
+
+  const syncGoogleDoc = async () => {
+    setGdocBusy(true);
+    setGdocMsg(null);
+    try {
+      const res = await api.importGoogleDoc();
+      const s = res.imported || {};
+      setGdocMsg(
+        `Doc OK · ${s.docs || 0} trámites · ${s.flights || 0} vuelos · ${s.stays || 0} stays · ${s.bookings || 0} reservas`,
+      );
+      await onReloadTrip?.();
+    } catch (e) {
+      setGdocMsg(e.message || "Error al importar Google Doc");
+    } finally {
+      setGdocBusy(false);
+    }
+  };
+
+  const pendingTotalUSD = pendingItems.reduce((s, p) => s + (Number(p.amountUSD) || 0), 0);
 
   return (
-    <div style={isDesktop ? S.grid : undefined}>
-      <Card style={isDesktop ? S.spanFull : undefined}>
+    <div style={isDesktop ? S.dashGrid : undefined}>
+      {/* Indicadores arriba */}
+      <Card style={isDesktop ? S.span6 : undefined}>
         <div style={S.label}>Total gastado</div>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 34, fontWeight: 700, color: C.ink }}>{fmt(totals.JPY, "JPY")}</span>
+          <span style={{ fontSize: isDesktop ? 28 : 34, fontWeight: 700, color: C.ink }}>{fmt(totals.JPY, "JPY")}</span>
           <span style={{ fontSize: 15, color: C.indigo }}>{fmt(totals.USD, "USD")}</span>
           <span style={{ fontSize: 15, color: C.soft }}>{fmt(totals.ARS, "ARS")}</span>
         </div>
@@ -557,7 +582,53 @@ function Resumen({
         </div>
       </Card>
 
-      <Card style={isDesktop ? S.spanFull : undefined}>
+      {isDesktop ? (() => {
+        const locPct = locationProgressPercent(locations);
+        const locTone = locationProgressTone(locations);
+        const locFill =
+          locTone === "accent" ? "var(--accent)" : locTone === "warn" ? "var(--warn)" : "var(--fg-muted)";
+        return (
+          <Card style={S.span6}>
+            <div style={S.label}>Viaje</div>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div>
+                <div style={{ fontSize: 12, color: C.soft }}>Días</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: C.ink }}>{itinerary.days}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: C.soft }}>Paradas</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: C.ink }}>{itinerary.stops}</div>
+              </div>
+              <div style={{ flex: "1 1 140px", minWidth: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12, color: C.soft }}>
+                  <span>Ubicaciones</span>
+                  <span style={{ color: C.ink, fontWeight: 600 }}>{locPct}%</span>
+                </div>
+                <div
+                  role="progressbar"
+                  aria-valuenow={locPct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={formatGlobalLocationProgress(locations)}
+                  style={{ height: 6, background: C.line, borderRadius: 3, marginTop: 6, overflow: "hidden" }}
+                >
+                  <div style={{ height: 6, width: `${locPct}%`, background: locFill, borderRadius: 3 }} />
+                </div>
+                <div style={{ fontSize: 12, color: C.soft, marginTop: 6 }}>
+                  {formatGlobalLocationProgress(locations)}
+                </div>
+                {locations.pending > 0 && typeof onLocatePending === "function" && (
+                  <button type="button" style={{ ...S.ghost, marginTop: 6, fontSize: 13, padding: 0 }} onClick={onLocatePending}>
+                    Ubicar pendientes →
+                  </button>
+                )}
+              </div>
+            </div>
+          </Card>
+        );
+      })() : null}
+
+      <Card style={isDesktop ? S.span6 : undefined}>
         <div style={S.label}>Por categoría (USD)</div>
         {Object.keys(totals.byCat).length === 0 && <Empty text="Todavía no hay montos. Cargá ítems en 費 Gastos." />}
         {CATS.filter((c) => totals.byCat[c.id]).map((c) => {
@@ -577,7 +648,7 @@ function Resumen({
         })}
       </Card>
 
-      <Card>
+      <Card style={isDesktop ? S.span6 : undefined}>
         <div style={S.label}>Logística · checklist</div>
         <Row k="Completado" v={`${logistics.done}/${logistics.total} (${logistics.percent}%)`} />
         <Row k="Cargado (USD)" v={fmt(est.loadedUSD, "USD")} />
@@ -590,22 +661,7 @@ function Resumen({
           type="button"
           style={{ ...S.secondary, marginTop: 10, width: "100%", minHeight: 44 }}
           disabled={gdocBusy}
-          onClick={async () => {
-            setGdocBusy(true);
-            setGdocMsg(null);
-            try {
-              const res = await api.importGoogleDoc();
-              const s = res.imported || {};
-              setGdocMsg(
-                `Doc OK · ${s.docs || 0} trámites · ${s.flights || 0} vuelos · ${s.stays || 0} stays · ${s.bookings || 0} reservas`,
-              );
-              await onReloadTrip?.();
-            } catch (e) {
-              setGdocMsg(e.message || "Error al importar Google Doc");
-            } finally {
-              setGdocBusy(false);
-            }
-          }}
+          onClick={syncGoogleDoc}
         >
           {gdocBusy ? "Importando Doc…" : "Sincronizar Google Doc"}
         </button>
@@ -617,50 +673,87 @@ function Resumen({
         </button>
       </Card>
 
-      <LocationProgressCard locations={locations} onLocatePending={onLocatePending} />
+      {!isDesktop && (
+        <>
+          <LocationProgressCard locations={locations} onLocatePending={onLocatePending} />
+          <Card>
+            <div style={S.label}>Itinerario</div>
+            <Row k="Días" v={itinerary.days} />
+            <Row k="Paradas" v={itinerary.stops} />
+            {itinerary.nextDays?.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginBottom: 6 }}>Próximos días</div>
+                {itinerary.nextDays.map((d) => (
+                  <button
+                    key={d.day_number}
+                    type="button"
+                    onClick={() => openDayPreview(d.day_number)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      background: "transparent",
+                      border: "none",
+                      padding: "6px 0",
+                      cursor: "pointer",
+                      borderBottom: `1px solid ${C.line}`,
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, color: C.hanko }}>D{d.day_number}</span>{" "}
+                    <span style={{ color: C.ink }}>{d.title || "Sin título"}</span>
+                    <span style={{ color: C.soft, fontSize: 12 }}> · {d.stops} paradas</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Card>
+        </>
+      )}
 
-      <Card>
-        <div style={S.label}>Itinerario</div>
-        <Row k="Días" v={itinerary.days} />
-        <Row k="Paradas" v={itinerary.stops} />
-        {itinerary.nextDays?.length > 0 && (
-          <div style={{ marginTop: 10 }}>
-            <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginBottom: 6 }}>Próximos días</div>
-            {itinerary.nextDays.map((d) => (
-              <button
-                key={d.day_number}
-                type="button"
-                onClick={() => openDayPreview(d.day_number)}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  textAlign: "left",
-                  background: "transparent",
-                  border: "none",
-                  padding: "6px 0",
-                  cursor: "pointer",
-                  borderBottom: `1px solid ${C.line}`,
-                }}
-              >
-                <span style={{ fontWeight: 700, color: C.hanko }}>D{d.day_number}</span>{" "}
-                <span style={{ color: C.ink }}>{d.title || "Sin título"}</span>
-                <span style={{ color: C.soft, fontSize: 12 }}> · {d.stops} paradas</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      {pendingItems.length > 0 && (
-        <Card>
-          <div style={S.label}>Pendientes con monto</div>
-          {pendingItems.map((p) => (
-            <Row key={p.id} k={p.desc} v={fmt(p.amountUSD, "USD")} accent />
-          ))}
+      {/* Ancho completo: pendientes (colapsable) + preview */}
+      {hasPending && (
+        <Card style={isDesktop ? S.spanFull : undefined}>
+          <button
+            type="button"
+            aria-expanded={pendingOpen}
+            onClick={() => setPendingOpen((o) => !o)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              width: "100%",
+              background: "transparent",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+              textAlign: "left",
+              minHeight: 44,
+            }}
+          >
+            <div>
+              <div style={S.label}>Pendientes con monto</div>
+              {!pendingOpen && (
+                <div style={{ fontSize: 13, color: C.soft, marginTop: 2 }}>
+                  {pendingItems.length} ítem{pendingItems.length === 1 ? "" : "s"} · {fmt(pendingTotalUSD, "USD")}
+                </div>
+              )}
+            </div>
+            <span aria-hidden style={{ color: C.soft, fontSize: 18, lineHeight: 1, flexShrink: 0 }}>
+              {pendingOpen ? "▾" : "▸"}
+            </span>
+          </button>
+          {pendingOpen && (
+            <div style={{ marginTop: 8 }}>
+              {pendingItems.map((p) => (
+                <Row key={p.id} k={p.desc} v={fmt(p.amountUSD, "USD")} accent />
+              ))}
+            </div>
+          )}
         </Card>
       )}
 
-      <Card>
+      <Card style={isDesktop ? S.spanFull : undefined}>
         <div style={S.label}>Preview del plan</div>
         <PlanPreview
           days={itinerary.dayChips?.length ? itinerary.dayChips : itinerary.nextDays || []}

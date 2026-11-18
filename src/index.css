@@ -131,3 +131,103 @@ html[data-theme="dark"] [data-day-map-popup] .np-map-action:active {
     color: #fff;
   }
 }
+
+/* Plan preview: gap real entre day cards (no dependen de inline styles). */
+.np-plan-preview-corridor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 4px;
+  width: 100%;
+  margin-bottom: 16px;
+  min-width: 0;
+}
+
+.np-plan-preview-corridor-item {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.np-plan-preview-arrow {
+  color: var(--border, #3E4046);
+  padding: 0 6px;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.np-plan-preview-chip {
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.np-plan-preview-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  column-gap: 16px;
+  row-gap: 16px;
+  width: 100%;
+  min-width: 0;
+  align-items: stretch;
+}
+
+.np-plan-preview-days.is-mobile {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.np-plan-preview-day {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border, #3E4046);
+  background: var(--bg, #2D2E32);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  line-height: 1.35;
+  min-height: 76px;
+}
+
+.np-plan-preview-days.is-mobile .np-plan-preview-day {
+  flex: 0 0 auto;
+  width: 140px;
+  max-width: 140px;
+}
+
+.np-plan-preview-day-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-text, #e85d4c);
+  line-height: 1.3;
+}
+
+.np-plan-preview-day-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg, #fff);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.np-plan-preview-day-meta {
+  font-size: 11px;
+  color: var(--fg-muted, #A6A8AE);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

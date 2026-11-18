@@ -26,37 +26,28 @@ export default function PlanPreview({ days = [], onOpenDay }) {
   }
 
   return (
-    <div>
+    <div className="np-plan-preview" style={{ width: "100%", minWidth: 0 }}>
       <div style={{ fontSize: 12, color: C.onSurfaceVariant, marginBottom: 10 }}>
         Corredor del viaje · tocá una ciudad para filtrar días
       </div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 0,
-          overflowX: isDesktop ? "visible" : "auto",
-          flexWrap: isDesktop ? "wrap" : "nowrap",
-          paddingBottom: 8,
-          marginBottom: 12,
-        }}
-      >
+      <div className="np-plan-preview-corridor" role="list">
         {corridor.map((seg, i) => {
           const active = cityFilter?.city === seg.city;
           return (
-            <div key={`${seg.city}-${i}`} style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+            <div key={`${seg.city}-${i}`} className="np-plan-preview-corridor-item" role="listitem">
               {i > 0 && (
-                <span style={{ color: C.line, padding: "0 6px", fontSize: 14 }} aria-hidden>
+                <span className="np-plan-preview-arrow" aria-hidden>
                   →
                 </span>
               )}
               <button
                 type="button"
+                title={seg.city}
                 onClick={() => setCityFilter(active ? null : seg)}
+                className={active ? "np-plan-preview-chip is-active" : "np-plan-preview-chip"}
                 style={{
                   ...S.chip,
                   ...(active ? S.chipOn : {}),
-                  whiteSpace: "nowrap",
                 }}
               >
                 {seg.city}
@@ -80,42 +71,22 @@ export default function PlanPreview({ days = [], onOpenDay }) {
         </button>
       )}
 
-      <div style={{ display: "flex", gap: 8, flexWrap: isDesktop ? "wrap" : "nowrap", overflowX: isDesktop ? "visible" : "auto", paddingBottom: 4 }}>
+      <div
+        className={isDesktop ? "np-plan-preview-days" : "np-plan-preview-days is-mobile"}
+        role="list"
+      >
         {chips.map((d) => (
           <button
             key={d.day_number}
             type="button"
+            role="listitem"
             onClick={() => onOpenDay?.(d.day_number)}
-            style={{
-              flexShrink: 0,
-              minWidth: 88,
-              maxWidth: 140,
-              textAlign: "left",
-              padding: "10px 12px",
-              borderRadius: 12,
-              border: `1px solid ${C.line}`,
-              background: C.surface,
-              cursor: "pointer",
-            }}
+            className="np-plan-preview-day"
           >
-            <div style={{ fontSize: 11, color: C.hanko, fontWeight: 700 }}>Día {d.day_number}</div>
-            <div
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                color: C.ink,
-                marginTop: 2,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {d.title || `Día ${d.day_number}`}
-            </div>
+            <div className="np-plan-preview-day-label">Día {d.day_number}</div>
+            <div className="np-plan-preview-day-title">{d.title || `Día ${d.day_number}`}</div>
             {(d.base || d.stay_label) && (
-              <div style={{ fontSize: 11, color: C.soft, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {d.base || d.stay_label}
-              </div>
+              <div className="np-plan-preview-day-meta">{d.base || d.stay_label}</div>
             )}
           </button>
         ))}

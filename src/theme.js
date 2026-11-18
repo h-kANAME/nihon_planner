@@ -338,7 +338,7 @@ export function buildStyles(C, isDesktop = false) {
       boxShadow: C.elevation1,
     },
     content: isDesktop
-      ? { maxWidth: 920, margin: "0 auto", padding: "0 32px 40px" }
+      ? { maxWidth: "none", width: "100%", margin: 0, padding: "0 28px 40px", boxSizing: "border-box" }
       : {},
     rail: {
       position: "fixed",
@@ -409,7 +409,20 @@ export function buildStyles(C, isDesktop = false) {
       rowGap: 0,
       alignItems: "start",
     },
-    spanFull: { gridColumn: "1 / -1" },
+    /** Dashboard Resumen: gap del grid (no marginBottom en cards) evita que se pisen. */
+    dashGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(12, minmax(0, 1fr))",
+      gap: 16,
+      alignItems: "stretch",
+    },
+    /** marginBottom: 0 — S.card trae 12px que con height:100% desborda la fila. */
+    spanFull: { gridColumn: "1 / -1", height: "100%", marginBottom: 0, minWidth: 0, boxSizing: "border-box" },
+    span8: { gridColumn: "span 8", height: "100%", marginBottom: 0, minWidth: 0, boxSizing: "border-box" },
+    span7: { gridColumn: "span 7", height: "100%", marginBottom: 0, minWidth: 0, boxSizing: "border-box" },
+    span6: { gridColumn: "span 6", height: "100%", marginBottom: 0, minWidth: 0, boxSizing: "border-box" },
+    span5: { gridColumn: "span 5", height: "100%", marginBottom: 0, minWidth: 0, boxSizing: "border-box" },
+    span4: { gridColumn: "span 4", height: "100%", marginBottom: 0, minWidth: 0, boxSizing: "border-box" },
   };
 }
 
